@@ -1,0 +1,2278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Tower Defense 3D</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; overflow: hidden; font-family: 'Segoe UI', sans-serif; color: #fff; touch-action: none; }
+#canvas { display: block; width: 100vw; height: 100vh; }
+
+/* === SCREENS === */
+.screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+.screen.hidden { display: none; }
+
+/* === MAIN MENU === */
+#main-menu { background: radial-gradient(ellipse at center, #0d1b2a 0%, #0a0a1a 100%); }
+#main-menu .logo { font-size: clamp(2rem, 6vw, 4rem); font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; color: #f5a623; text-shadow: 0 0 40px rgba(245,166,35,0.5); margin-bottom: 0.5rem; }
+#main-menu .subtitle { font-size: clamp(0.8rem, 2vw, 1.1rem); color: #8899aa; letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 3rem; }
+.menu-btn { display: block; width: min(300px, 80vw); padding: 1rem 2rem; margin: 0.5rem 0; border: 2px solid #f5a623; background: transparent; color: #f5a623; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; border-radius: 4px; transition: all 0.2s; text-align: center; }
+.menu-btn:hover, .menu-btn:active { background: #f5a623; color: #000; transform: scale(1.03); }
+.menu-btn.primary { background: #f5a623; color: #000; }
+
+/* === HUD === */
+#hud { position: fixed; top: 0; left: 0; right: 0; height: 56px; background: rgba(10,10,26,0.92); border-bottom: 1px solid rgba(245,166,35,0.3); display: flex; align-items: center; padding: 0 12px; gap: 16px; z-index: 50; backdrop-filter: blur(8px); }
+#hud.hidden { display: none; }
+.hud-stat { display: flex; align-items: center; gap: 6px; font-size: 1rem; font-weight: 700; }
+.hud-stat .icon { font-size: 1.2rem; }
+.hud-stat .val { color: #f5a623; min-width: 2.5em; }
+.hud-spacer { flex: 1; }
+.hud-btn { padding: 6px 14px; border-radius: 4px; border: 1.5px solid #f5a623; background: transparent; color: #f5a623; font-size: 0.85rem; font-weight: 700; cursor: pointer; letter-spacing: 0.05em; transition: all 0.15s; }
+.hud-btn:hover { background: #f5a623; color: #000; }
+.hud-btn.primary { background: #f5a623; color: #000; }
+.hud-btn.danger { border-color: #e74c3c; color: #e74c3c; }
+.hud-btn.danger:hover { background: #e74c3c; color: #fff; }
+#wave-info { font-size: 0.85rem; color: #8899aa; white-space: nowrap; }
+
+/* === BOTTOM PANEL === */
+#bottom-panel { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(10,10,26,0.95); border-top: 1px solid rgba(245,166,35,0.3); z-index: 50; backdrop-filter: blur(8px); }
+#bottom-panel.hidden { display: none; }
+.tab-bar { display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.tab-btn { flex: 1; padding: 10px; text-align: center; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #556677; cursor: pointer; transition: color 0.2s; }
+.tab-btn.active { color: #f5a623; border-bottom: 2px solid #f5a623; }
+.tab-content { display: none; padding: 8px 8px 12px; overflow-x: auto; white-space: nowrap; }
+.tab-content.active { display: block; }
+.item-card { display: inline-flex; flex-direction: column; align-items: center; width: 80px; margin-right: 6px; padding: 8px 4px; background: rgba(255,255,255,0.05); border: 1.5px solid rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; transition: all 0.2s; vertical-align: top; }
+.item-card:hover { border-color: #f5a623; background: rgba(245,166,35,0.1); }
+.item-card.selected { border-color: #f5a623; background: rgba(245,166,35,0.15); }
+.item-card.disabled { opacity: 0.4; cursor: not-allowed; }
+.item-icon { font-size: 2rem; margin-bottom: 4px; }
+.item-name { font-size: 0.65rem; font-weight: 700; text-align: center; color: #ccc; margin-bottom: 2px; white-space: normal; line-height: 1.2; }
+.item-cost { font-size: 0.7rem; color: #f5a623; }
+
+/* === TOWER INFO PANEL === */
+#tower-info { position: fixed; right: 12px; top: 68px; width: 200px; background: rgba(10,10,26,0.95); border: 1px solid rgba(245,166,35,0.4); border-radius: 8px; padding: 12px; z-index: 50; backdrop-filter: blur(8px); }
+#tower-info.hidden { display: none; }
+#tower-info h3 { font-size: 0.9rem; color: #f5a623; margin-bottom: 8px; }
+.ti-stat { display: flex; justify-content: space-between; font-size: 0.75rem; color: #aaa; margin-bottom: 4px; }
+.ti-stat span:last-child { color: #fff; }
+.ti-btn { width: 100%; padding: 6px; margin-top: 6px; border-radius: 4px; border: 1px solid; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+.ti-upgrade { border-color: #2ecc71; color: #2ecc71; background: transparent; }
+.ti-upgrade:hover { background: #2ecc71; color: #000; }
+.ti-sell { border-color: #e74c3c; color: #e74c3c; background: transparent; }
+.ti-sell:hover { background: #e74c3c; color: #fff; }
+
+/* === WAVE NOTIFICATION === */
+#wave-notify { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); text-align: center; z-index: 200; pointer-events: none; transition: opacity 0.5s; }
+#wave-notify.hidden { opacity: 0; }
+#wave-notify .wn-title { font-size: clamp(2rem, 8vw, 4rem); font-weight: 900; color: #f5a623; text-shadow: 0 0 30px rgba(245,166,35,0.8); }
+#wave-notify .wn-sub { font-size: 1rem; color: #aaa; }
+
+/* === GAME OVER / WIN === */
+#game-over-screen { background: rgba(0,0,0,0.85); }
+#game-over-screen h1 { font-size: clamp(2rem, 8vw, 5rem); font-weight: 900; color: #e74c3c; text-shadow: 0 0 40px rgba(231,76,60,0.6); margin-bottom: 1rem; }
+#win-screen { background: rgba(0,0,0,0.85); }
+#win-screen h1 { font-size: clamp(2rem, 8vw, 5rem); font-weight: 900; color: #2ecc71; text-shadow: 0 0 40px rgba(46,204,113,0.6); margin-bottom: 1rem; }
+.result-info { color: #aaa; font-size: 1rem; margin-bottom: 2rem; }
+
+/* === LOADING === */
+#loading-screen { background: #0a0a1a; }
+#loading-screen .loader-title { font-size: 1.5rem; font-weight: 700; color: #f5a623; margin-bottom: 1.5rem; }
+.progress-bar { width: min(400px, 80vw); height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
+.progress-fill { height: 100%; background: #f5a623; border-radius: 3px; transition: width 0.3s; }
+.progress-label { font-size: 0.8rem; color: #556677; margin-top: 8px; }
+
+/* === TOOLTIP === */
+#tooltip { position: fixed; background: rgba(10,10,26,0.95); border: 1px solid rgba(245,166,35,0.4); border-radius: 6px; padding: 8px 12px; font-size: 0.75rem; z-index: 300; pointer-events: none; max-width: 200px; }
+#tooltip.hidden { display: none; }
+#tooltip h4 { color: #f5a623; margin-bottom: 4px; }
+#tooltip p { color: #aaa; line-height: 1.4; }
+
+/* === RANGE INDICATOR === */
+.range-circle { position: absolute; border-radius: 50%; border: 2px dashed rgba(245,166,35,0.5); transform: translate(-50%,-50%); pointer-events: none; }
+
+/* Mobile safe area */
+@media (max-width: 768px) {
+  #hud { height: 52px; padding: 0 8px; gap: 10px; }
+  #tower-info { width: 160px; font-size: 0.8em; }
+}
+</style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div id="loading-screen" class="screen">
+  <div class="loader-title">🏰 Loading Tower Defense</div>
+  <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+  <div class="progress-label" id="progress-label">Initializing...</div>
+</div>
+
+<!-- Main Menu -->
+<div id="main-menu" class="screen hidden">
+  <div class="logo">Tower Defense</div>
+  <div class="subtitle">3D Strategy</div>
+  <button class="menu-btn primary" id="btn-play">▶ Play</button>
+  <button class="menu-btn" id="btn-maps">📋 My Maps</button>
+  <button class="menu-btn" id="btn-editor">🗺 Map Editor</button>
+</div>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div class="hud-stat"><span class="icon">💰</span><span class="val" id="hud-gold">0</span></div>
+  <div class="hud-stat"><span class="icon">❤️</span><span class="val" id="hud-lives">0</span></div>
+  <div class="hud-stat"><span class="icon">🌊</span><span class="val" id="hud-wave">0</span></div>
+  <div id="wave-info">Ready</div>
+  <div class="hud-spacer"></div>
+  <button class="hud-btn primary" id="btn-start-wave">Start Wave</button>
+  <button class="hud-btn" id="btn-speed">×1</button>
+  <button class="hud-btn danger" id="btn-exit">✕</button>
+</div>
+
+<!-- Bottom Panel -->
+<div id="bottom-panel" class="hidden">
+  <div class="tab-bar">
+    <div class="tab-btn active" data-tab="towers">⚔️ Towers</div>
+    <div class="tab-btn" data-tab="animals">🐾 Animals</div>
+  </div>
+  <div class="tab-content active" id="tab-towers"></div>
+  <div class="tab-content" id="tab-animals"></div>
+</div>
+
+<!-- Tower Info -->
+<div id="tower-info" class="hidden">
+  <h3 id="ti-name">Tower</h3>
+  <div class="ti-stat"><span>Level</span><span id="ti-level">1</span></div>
+  <div class="ti-stat"><span>Damage</span><span id="ti-damage">0</span></div>
+  <div class="ti-stat"><span>Range</span><span id="ti-range">0</span></div>
+  <div class="ti-stat"><span>Speed</span><span id="ti-speed">0</span></div>
+  <button class="ti-btn ti-upgrade" id="btn-upgrade">Upgrade (💰0)</button>
+  <button class="ti-btn ti-sell" id="btn-sell">Sell (💰0)</button>
+  <button class="ti-btn" id="btn-deselect" style="border-color:#556677;color:#556677;">Close</button>
+</div>
+
+<!-- Wave Notify -->
+<div id="wave-notify" class="hidden">
+  <div class="wn-title" id="wn-title">Wave 1</div>
+  <div class="wn-sub" id="wn-sub">Prepare your defenses!</div>
+</div>
+
+<!-- Game Over -->
+<div id="game-over-screen" class="screen hidden">
+  <h1>💀 Game Over</h1>
+  <div class="result-info" id="go-info">Wave: 0</div>
+  <button class="menu-btn primary" id="btn-go-retry">Retry</button>
+  <button class="menu-btn" id="btn-go-menu">Main Menu</button>
+</div>
+
+<!-- Win Screen -->
+<div id="win-screen" class="screen hidden">
+  <h1>🏆 Victory!</h1>
+  <div class="result-info" id="win-info">All waves survived!</div>
+  <button class="menu-btn primary" id="btn-win-menu">Main Menu</button>
+</div>
+
+<!-- Map Editor -->
+<div id="editor-screen" class="hidden" style="position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;background:transparent;pointer-events:none;">
+  <!-- Editor Top Bar -->
+  <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:rgba(0,0,0,0.88);border-bottom:1px solid #f5a623;flex-shrink:0;pointer-events:auto;">
+    <span style="color:#f5a623;font-weight:900;font-size:1rem;">🗺 MAP EDITOR</span>
+    <div style="flex:1"></div>
+    <button class="hud-btn" id="ed-rotate-ccw" title="Rotate CCW">↺ Rotate</button>
+    <button class="hud-btn" id="ed-rotate-cw" title="Rotate CW">↻ Rotate</button>
+    <button class="hud-btn" id="ed-clear">🗑 Clear</button>
+    <button class="hud-btn" id="ed-save" style="border-color:#2ecc71;color:#2ecc71;">💾 Save Map</button>
+    <button class="hud-btn primary" id="ed-play">▶ Play This Map</button>
+    <button class="hud-btn danger" id="btn-editor-back">✕ Back</button>
+  </div>
+  <!-- Editor Body -->
+  <div style="display:flex;flex:1;overflow:hidden;">
+    <!-- Tile Palette -->
+    <div id="ed-palette" style="width:90px;background:rgba(0,0,0,0.82);border-right:1px solid #333;overflow-y:auto;flex-shrink:0;padding:6px 4px;pointer-events:auto;">
+      <div style="color:#888;font-size:0.6rem;text-align:center;margin-bottom:4px;letter-spacing:0.1em;">TILES</div>
+    </div>
+    <!-- Canvas area — the main canvas is shared, editor just overlays on top -->
+    <div style="flex:1;position:relative;">
+      <div id="ed-info" style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);color:#aaa;font-size:0.75rem;padding:4px 12px;border-radius:20px;pointer-events:none;z-index:10;">Tap a tile in palette → tap map to place</div>
+    </div>
+  </div>
+</div>
+
+<!-- Single shared canvas — used by both editor and game -->
+<canvas id="canvas"></canvas>
+
+<!-- My Maps Modal -->
+<div id="my-maps-modal" class="screen hidden" style="background:rgba(0,0,0,0.92);">
+  <div style="background:#111;border:1px solid #f5a623;border-radius:12px;padding:24px;width:min(420px,90vw);max-height:80vh;overflow-y:auto;">
+    <div style="color:#f5a623;font-size:1.2rem;font-weight:900;margin-bottom:16px;">📋 My Saved Maps</div>
+    <div id="my-maps-list"></div>
+    <button class="menu-btn" id="btn-maps-close" style="margin-top:16px;width:100%;">✕ Close</button>
+  </div>
+</div>
+
+<!-- Tooltip -->
+<div id="tooltip" class="hidden"><h4 id="tt-name"></h4><p id="tt-desc"></p></div>
+
+<script type="module">
+// ============================================================
+// TOWER DEFENSE 3D — Full Game
+// Uses Three.js r128 CDN + GLTFLoader
+// ============================================================
+
+// Dynamically load Three.js
+async function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = res;
+    s.onerror = rej;
+    document.head.appendChild(s);
+  });
+}
+
+const BASE = (()=>{
+  const l = window.location.href;
+  if (l.startsWith('file://')) return './';
+  return l.endsWith('/') ? l : l.substring(0, l.lastIndexOf('/')+1);
+})();
+
+function updateProgress(pct, label) {
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = label;
+}
+
+updateProgress(5, 'Loading Three.js...');
+await loadScript('https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js');
+updateProgress(15, 'Loading loaders...');
+
+// GLB Loader with external texture support (Kenney colormap.png)
+// Pre-loads the shared colormap texture once, then reuses it for all models
+
+const _textureCache = {};
+function loadTextureOnce(url) {
+  if (_textureCache[url]) return _textureCache[url];
+  const tex = new THREE.TextureLoader().load(url);
+  tex.flipY = false;
+  tex.magFilter = THREE.LinearFilter;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  tex.encoding = THREE.sRGBEncoding;
+  _textureCache[url] = tex;
+  return tex;
+}
+
+class GLBLoader {
+  constructor(manager) { this.manager = manager; }
+  
+  load(url, onLoad, onProgress, onError) {
+    fetch(url)
+      .then(r => r.arrayBuffer())
+      .then(buf => this._parse(buf, url, onLoad))
+      .catch(onError || console.error);
+  }
+
+  _parse(buffer, url, onLoad) {
+    const magic = new Uint32Array(buffer, 0, 1)[0];
+    if (magic !== 0x46546C67) { console.error('Not a GLB file:', url); return; }
+    
+    let jsonChunk = null, binChunk = null;
+    let offset = 12;
+    const dv = new DataView(buffer);
+    
+    while (offset < buffer.byteLength) {
+      const chunkLen = dv.getUint32(offset, true);
+      const chunkType = dv.getUint32(offset + 4, true);
+      offset += 8;
+      if (chunkType === 0x4E4F534A) {
+        jsonChunk = JSON.parse(new TextDecoder().decode(new Uint8Array(buffer, offset, chunkLen)));
+      } else if (chunkType === 0x004E4942) {
+        binChunk = buffer.slice(offset, offset + chunkLen);
+      }
+      offset += chunkLen;
+    }
+    
+    if (!jsonChunk) { console.error('No JSON chunk in GLB'); return; }
+    
+    // Resolve base URL for external texture references
+    const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
+    const scene = this._buildScene(jsonChunk, binChunk, baseUrl);
+    onLoad({ scene });
+  }
+
+  _buildScene(gltf, binChunk, baseUrl) {
+    const group = new THREE.Group();
+    
+    // Build buffers
+    const bufferViews = [];
+    if (gltf.bufferViews) {
+      for (const bv of gltf.bufferViews) {
+        bufferViews.push(new Uint8Array(binChunk, bv.byteOffset || 0, bv.byteLength));
+      }
+    }
+
+    // Build accessors
+    const getAccessorData = (idx) => {
+      if (idx === undefined) return null;
+      const acc = gltf.accessors[idx];
+      const bv = bufferViews[acc.bufferView];
+      const compMap = { SCALAR:1, VEC2:2, VEC3:3, VEC4:4, MAT4:16 };
+      const n = compMap[acc.type] || 1;
+      const byteOffset = acc.byteOffset || 0;
+      const sliced = bv.slice(byteOffset);
+      if (acc.componentType === 5126) return new Float32Array(sliced.buffer, sliced.byteOffset, acc.count * n);
+      if (acc.componentType === 5125) return new Uint32Array(sliced.buffer, sliced.byteOffset, acc.count * n);
+      if (acc.componentType === 5123) return new Uint16Array(sliced.buffer, sliced.byteOffset, acc.count * n);
+      if (acc.componentType === 5121) return new Uint8Array(sliced.buffer, sliced.byteOffset, acc.count * n);
+      return null;
+    };
+
+    // Resolve textures - load external URI textures (e.g. Textures/colormap.png)
+    const textures = [];
+    if (gltf.textures && gltf.images) {
+      for (const tex of gltf.textures) {
+        const imgDef = gltf.images[tex.source];
+        if (imgDef && imgDef.uri) {
+          const texUrl = baseUrl + imgDef.uri;
+          textures.push(loadTextureOnce(texUrl));
+        } else if (imgDef && imgDef.bufferView !== undefined) {
+          // Embedded image in binary chunk
+          const bv = bufferViews[imgDef.bufferView];
+          const blob = new Blob([bv], { type: imgDef.mimeType || 'image/png' });
+          const objUrl = URL.createObjectURL(blob);
+          const t = new THREE.TextureLoader().load(objUrl);
+          t.flipY = false;
+          t.encoding = THREE.sRGBEncoding;
+          textures.push(t);
+        } else {
+          textures.push(null);
+        }
+      }
+    }
+
+    // Build materials with texture support
+    const materials = [];
+    if (gltf.materials) {
+      for (const mat of gltf.materials) {
+        const m = new THREE.MeshLambertMaterial();
+        if (mat.pbrMetallicRoughness) {
+          const pbr = mat.pbrMetallicRoughness;
+          if (pbr.baseColorTexture !== undefined && textures[pbr.baseColorTexture.index]) {
+            m.map = textures[pbr.baseColorTexture.index];
+          }
+          if (pbr.baseColorFactor) {
+            const [r,g,b,a] = pbr.baseColorFactor;
+            m.color.setRGB(r,g,b);
+            if (a < 1) { m.transparent = true; m.opacity = a; }
+          }
+        }
+        if (mat.doubleSided) m.side = THREE.DoubleSide;
+        materials.push(m);
+      }
+    }
+
+    // Build meshes
+    const buildMesh = (meshIdx) => {
+      const mesh = gltf.meshes[meshIdx];
+      const group = new THREE.Group();
+      for (const prim of mesh.primitives) {
+        const geo = new THREE.BufferGeometry();
+        const attrs = prim.attributes;
+        if (attrs.POSITION !== undefined) {
+          const pos = getAccessorData(attrs.POSITION);
+          if (pos) geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        }
+        if (attrs.NORMAL !== undefined) {
+          const nor = getAccessorData(attrs.NORMAL);
+          if (nor) geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+        }
+        if (attrs.TEXCOORD_0 !== undefined) {
+          const uv = getAccessorData(attrs.TEXCOORD_0);
+          if (uv) geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+        }
+        if (prim.indices !== undefined) {
+          const idx = getAccessorData(prim.indices);
+          if (idx) geo.setIndex(new THREE.BufferAttribute(idx, 1));
+        }
+        if (!geo.attributes.normal) geo.computeVertexNormals();
+        const mat = (prim.material !== undefined && materials[prim.material]) 
+          ? materials[prim.material] 
+          : new THREE.MeshLambertMaterial({ color: 0x88aa88 });
+        group.add(new THREE.Mesh(geo, mat));
+      }
+      return group;
+    };
+
+    // Build nodes
+    const buildNode = (nodeIdx) => {
+      const node = gltf.nodes[nodeIdx];
+      const obj = new THREE.Group();
+      obj.name = node.name || '';
+      if (node.translation) obj.position.fromArray(node.translation);
+      if (node.rotation) obj.quaternion.fromArray(node.rotation);
+      if (node.scale) obj.scale.fromArray(node.scale);
+      if (node.matrix) {
+        const m = new THREE.Matrix4();
+        m.fromArray(node.matrix);
+        obj.applyMatrix4(m);
+      }
+      if (node.mesh !== undefined) obj.add(buildMesh(node.mesh));
+      if (node.children) node.children.forEach(c => obj.add(buildNode(c)));
+      return obj;
+    };
+
+    // Build scene
+    if (gltf.scene !== undefined && gltf.scenes) {
+      const sc = gltf.scenes[gltf.scene];
+      if (sc.nodes) sc.nodes.forEach(n => group.add(buildNode(n)));
+    } else if (gltf.nodes) {
+      gltf.nodes.forEach((_, i) => group.add(buildNode(i)));
+    }
+
+    return group;
+  }
+}
+
+// ============================================================
+// ASSET MANAGER
+// ============================================================
+class AssetManager {
+  constructor() {
+    this.models = {};
+    this.loader = new GLBLoader();
+    this.total = 0;
+    this.loaded = 0;
+  }
+
+  async loadAll(assets) {
+    this.total = Object.keys(assets).length;
+    const promises = Object.entries(assets).map(([key, path]) =>
+      new Promise((res) => {
+        this.loader.load(
+          BASE + path,
+          (gltf) => {
+            this.models[key] = gltf.scene;
+            this.loaded++;
+            const pct = 15 + Math.round((this.loaded / this.total) * 70);
+            updateProgress(pct, `Loading ${key}...`);
+            res();
+          },
+          undefined,
+          (err) => {
+            console.warn(`Failed to load ${key}:`, err);
+            this.models[key] = null;
+            this.loaded++;
+            res();
+          }
+        );
+      })
+    );
+    await Promise.all(promises);
+  }
+
+  clone(key) {
+    if (!this.models[key]) return null;
+    return this.models[key].clone(true);
+  }
+}
+
+// ============================================================
+// GAME CONSTANTS
+// ============================================================
+const TILE_SIZE = 1;
+const GRID_W = 20;
+const GRID_H = 20;
+
+const TILE_GRASS = 0;
+const TILE_ROAD = 1;
+const TILE_WATER = 2;
+const TILE_BRIDGE = 3;
+const TILE_TREE = 4;
+const TILE_ROCK = 5;
+const TILE_START = 6;
+const TILE_END = 7;
+
+// Default map — 4 lanes, lush decoration
+// COORDINATE: row=z (south+), col=x (east+)
+// corner-round rot=0 connects NORTH(row-1) and EAST(col+1)
+// Proof: road verts reach +x edge and -z edge at boundary
+const DEFAULT_MAP = (() => {
+  const G=TILE_GRASS,R=TILE_ROAD,T=TILE_TREE,K=TILE_ROCK,S=TILE_START,E=TILE_END;
+  // 20x20 grid, hand-crafted like Kenney reference
+  // Path snakes: START top-left → right → down → left → down → right → down → left → END
+  const g = Array.from({length:GRID_H},()=>Array(GRID_W).fill(G));
+
+  // === PATH ===
+  // Row 1: col 1→16 (E)
+  for(let c=1;c<=16;c++) g[1][c]=R;
+  // Col 16: row 1→5 (S)
+  for(let r=2;r<=5;r++) g[r][16]=R;
+  // Row 5: col 4→16 (W)
+  for(let c=4;c<=15;c++) g[5][c]=R;
+  // Col 4: row 5→9 (S)
+  for(let r=6;r<=9;r++) g[r][4]=R;
+  // Row 9: col 4→16 (E)
+  for(let c=5;c<=16;c++) g[9][c]=R;
+  // Col 16: row 9→13 (S)
+  for(let r=10;r<=13;r++) g[r][16]=R;
+  // Row 13: col 2→16 (W)
+  for(let c=2;c<=15;c++) g[13][c]=R;
+  // Col 2: row 13→17 (S)
+  for(let r=14;r<=17;r++) g[r][2]=R;
+  // Row 17: col 2→18 (E)
+  for(let c=3;c<=18;c++) g[17][c]=R;
+
+  g[1][1]=S; g[17][18]=E;
+
+  // === BIOMES ===
+  // Top-right: dense forest
+  const forest1=[[0,10],[0,11],[0,12],[0,13],[0,14],[0,15],[0,16],[0,17],[0,18],[0,19],
+    [1,17],[1,18],[1,19],[2,17],[2,18],[2,19],[3,17],[3,18],[3,19]];
+  forest1.forEach(([r,c])=>{if(g[r][c]===G)g[r][c]=T;});
+
+  // Between lanes 1&2: trees + rocks
+  [[2,5],[2,6],[2,7],[2,8],[2,9],[2,10],[2,11],[2,12],[2,13],[2,14],
+   [3,5],[3,6],[3,7],[3,8],[3,9],[3,11],[3,12],[3,13],[3,14],
+   [4,5],[4,6],[4,7],[4,9],[4,10],[4,12],[4,14]
+  ].forEach(([r,c])=>{if(g[r][c]===G)g[r][c]=T;});
+  [[3,10],[4,8],[4,11],[4,13]].forEach(([r,c])=>{if(g[r][c]===G)g[r][c]=K;});
+
+  // Between lanes 2&3: mixed
+  [[6,5],[6,6],[6,7],[6,8],[6,9],[6,10],[6,11],[6,12],[6,13],[6,14],[6,15],
+   [7,5],[7,6],[7,7],[7,8],[7,9],[7,11],[7,12],[7,13],[7,15],
+   [8,5],[8,6],[8,8],[8,9],[8,11],[8,12],[8,14],[8,15]
+  ].forEach(([r,c])=>{if(g[r][c]===G)g[r][c]=T;});
+  [[7,10],[7,14],[8,7],[8,10],[8,13]].forEach(([r,c])=>{if(g[r][c]===G)g[r][c]=K;});
+
+  // Left side tall forest
+  [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0],[8,0],[9,0],[10,0],[11,0],
+   [2,1],[2,2],[3,1],[3,2],[3,3],[4,1],[4,2],[4,3],
+   [6,1],[6,2],[6,3],[7,1],[7,2],[7,3],[8,1],[8,2],[8,3]
+  ].forEach(([r,c])=>{if(g[r][c]===G)g[r][c]=T;});
+
+  // Between lanes 3&4
+  [[10,5],[10,6],[10,7],[10,8],[10,9],[10,10],[10,11],[10,12],[10,13],[10,14],[10,15],
+   [11,5],[11,6],[11,7],[11,9],[11,10],[11,11],[11,12],[11,13],[11,15],
+   [12,5],[12,6],[12,8],[12,9],[12,11],[12,12],[12,14],[12,15]
+  ].forEach(([r,c])=>{if(g[r][c]===G)g[r][c]=T;});
+  [[11,8],[11,14],[12,7],[12,10],[12,13]].forEach(([r,c])=>{if(g[r][c]===G)g[r][c]=K;});
+
+  // Bottom area
+  [[14,3],[14,4],[14,5],[14,6],[14,7],[14,8],[15,3],[15,4],[15,5],[15,7],[15,8],
+   [16,3],[16,4],[16,5],[16,7],[16,8],[16,9],[16,10],[16,11],
+   [18,0],[18,1],[18,2],[18,3],[18,4],[18,5],[18,6],[18,7],[18,8],
+   [19,0],[19,1],[19,2],[19,3],[19,4],[19,5],[19,6],[19,7],[19,8],[19,9],[19,10]
+  ].forEach(([r,c])=>{if(g[r][c]===G)g[r][c]=T;});
+  [[15,6],[16,6]].forEach(([r,c])=>{if(g[r][c]===G)g[r][c]=K;});
+
+  // Right-side bottom forest
+  [[14,17],[14,18],[14,19],[15,16],[15,17],[15,18],[15,19],
+   [16,16],[16,17],[16,18],[16,19],[18,15],[18,16],[18,17],[18,18],[18,19],
+   [19,14],[19,15],[19,16],[19,17],[19,18],[19,19]
+  ].forEach(([r,c])=>{if(g[r][c]===G)g[r][c]=T;});
+
+  return g;
+})();
+
+// Pre-computed path from start to end using BFS
+function computePath(grid) {
+  let start = null, end = null;
+  for (let r = 0; r < GRID_H; r++)
+    for (let c = 0; c < GRID_W; c++) {
+      if (grid[r][c] === TILE_START) start = [r,c];
+      if (grid[r][c] === TILE_END) end = [r,c];
+    }
+  if (!start || !end) return [];
+  const queue = [[...start, []]];
+  const visited = new Set();
+  const key = (r,c) => r+','+c;
+  visited.add(key(...start));
+  const walkable = [TILE_ROAD, TILE_BRIDGE, TILE_START, TILE_END];
+  while (queue.length) {
+    const [r,c,path] = queue.shift();
+    const newPath = [...path, [r,c]];
+    if (r === end[0] && c === end[1]) return newPath;
+    for (const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+      const nr = r+dr, nc = c+dc;
+      if (nr<0||nr>=GRID_H||nc<0||nc>=GRID_W) continue;
+      if (visited.has(key(nr,nc))) continue;
+      if (!walkable.includes(grid[nr][nc])) continue;
+      visited.add(key(nr,nc));
+      queue.push([nr, nc, newPath]);
+    }
+  }
+  return [];
+}
+
+// ============================================================
+// TOWER DEFINITIONS
+// ============================================================
+const TOWER_DEFS = [
+  { id:'cannon', name:'Cannon', icon:'💣', cost:50, damage:40, range:2.5, attackSpeed:1, color:0x888888, modelKey:'weapon_cannon', desc:'Slow but powerful. Deals splash damage.' },
+  { id:'sniper', name:'Sniper', icon:'🎯', cost:120, damage:100, range:5, attackSpeed:0.5, color:0x4466aa, modelKey:'weapon_ballista', desc:'Long range, high damage single target.' },
+  { id:'machinegun', name:'Machine Gun', icon:'🔫', cost:180, damage:15, range:2, attackSpeed:4, color:0x44aa44, modelKey:'weapon_turret', desc:'Rapid fire, low damage per shot.' },
+  { id:'freeze', name:'Freeze', icon:'❄️', cost:100, damage:5, range:2.5, attackSpeed:1.5, color:0x44ccff, modelKey:'tower_round_build_a', desc:'Slows enemies significantly.' },
+  { id:'lightning', name:'Lightning', icon:'⚡', cost:250, damage:60, range:3, attackSpeed:1.5, color:0xffff00, modelKey:'tower_square_build_a', desc:'Chains to multiple enemies.' },
+];
+
+const UPGRADE_MULT = [
+  { damage:1.5, range:1.1, attackSpeed:1.2, cost:0.8 },
+  { damage:2.0, range:1.2, attackSpeed:1.4, cost:1.2 },
+  { damage:3.0, range:1.3, attackSpeed:1.6, cost:2.0 },
+];
+
+// ============================================================
+// ANIMAL DEFINITIONS
+// ============================================================
+const ANIMAL_DEFS = [
+  { id:'bee', name:'Bee', icon:'🐝', cost:80, damage:20, range:2, attackSpeed:3, modelKey:'animal_bee', special:'poison', desc:'Fast attacks with poison.' },
+  { id:'elephant', name:'Elephant', icon:'🐘', cost:200, damage:80, range:2, attackSpeed:0.7, modelKey:'animal_elephant', special:'stun', desc:'Huge damage, stuns enemies.' },
+  { id:'fox', name:'Fox', icon:'🦊', cost:90, damage:25, range:2.5, attackSpeed:2, modelKey:'animal_fox', special:'none', desc:'Balanced stats.' },
+  { id:'crab', name:'Crab', icon:'🦀', cost:110, damage:35, range:2, attackSpeed:1.5, modelKey:'animal_crab', special:'slow', desc:'Slows enemies.' },
+  { id:'panda', name:'Panda', icon:'🐼', cost:150, damage:50, range:2.5, attackSpeed:1, modelKey:'animal_panda', special:'none', desc:'Strong and durable.' },
+  { id:'penguin', name:'Penguin', icon:'🐧', cost:70, damage:15, range:3, attackSpeed:2.5, modelKey:'animal_penguin', special:'freeze', desc:'Freezes enemies briefly.' },
+  { id:'lion', name:'Lion', icon:'🦁', cost:180, damage:65, range:2.5, attackSpeed:1.2, modelKey:'animal_lion', special:'roar', desc:'Roar slows nearby enemies.' },
+  { id:'monkey', name:'Monkey', icon:'🐒', cost:95, damage:30, range:3, attackSpeed:2, modelKey:'animal_monkey', special:'none', desc:'Great range.' },
+];
+
+// ============================================================
+// ENEMY DEFINITIONS
+// ============================================================
+const ENEMY_DEFS = [
+  { id:'worker', name:'Worker', icon:'👷', hp:80, speed:1.5, reward:10, color:0xff8800, scale:0.4, modelKey:'enemy_ufo_a' },
+  { id:'runner', name:'Runner', icon:'🏃', hp:50, speed:3, reward:15, color:0xff4444, scale:0.35, modelKey:'enemy_ufo_b' },
+  { id:'fatguy', name:'Fat Guy', icon:'🐷', hp:200, speed:0.8, reward:20, color:0xffaaaa, scale:0.5, modelKey:'enemy_ufo_c' },
+  { id:'police', name:'Police', icon:'👮', hp:150, speed:1.8, reward:25, color:0x4444ff, scale:0.4, modelKey:'enemy_ufo_a' },
+  { id:'engineer', name:'Engineer', icon:'🔧', hp:120, speed:2, reward:30, color:0x44ff44, scale:0.4, modelKey:'enemy_ufo_b' },
+  { id:'boss', name:'BOSS', icon:'👹', hp:1000, speed:0.8, reward:100, color:0xff0000, scale:0.7, modelKey:'enemy_ufo_d' },
+];
+
+// ============================================================
+// WAVE DEFINITIONS
+// ============================================================
+function buildWave(waveNum) {
+  const enemies = [];
+  const isBossWave = waveNum % 5 === 0;
+  const count = 5 + waveNum * 3;
+  const hpMult = 1 + (waveNum - 1) * 0.3;
+  const spawnInterval = Math.max(0.3, 1.5 - waveNum * 0.05);
+  
+  if (isBossWave) {
+    enemies.push({ type:'boss', hpMult: hpMult * 2 });
+  }
+  
+  const types = ['worker','runner','fatguy','police','engineer'];
+  for (let i = 0; i < count; i++) {
+    const t = types[Math.floor(Math.random() * Math.min(waveNum, types.length))];
+    enemies.push({ type: t, hpMult });
+  }
+  
+  return { enemies, spawnInterval, num: waveNum };
+}
+
+const TOTAL_WAVES = 20;
+
+// ============================================================
+// GAME STATE
+// ============================================================
+let THREE_loaded = false;
+let assets = null;
+let renderer, scene, camera, raycaster;
+let gameState = 'menu';
+let animFrameId = null;
+
+// Game data
+let grid = null;
+let path = [];
+let towers = [];
+let enemies = [];
+let projectiles = [];
+let particles = [];
+let gold = 300;
+let lives = 20;
+let wave = 0;
+let waveActive = false;
+let gameSpeed = 1;
+let selectedTowerType = null;
+let selectedTower = null;
+let tileObjects = []; // 3D tile mesh references
+let tileMeshGrid = []; // [r][c] -> Object3D
+let towerMeshes = {}; // tower id -> Object3D
+
+// Camera control
+let camTarget = new THREE.Vector3();
+let camAngle = Math.PI / 4;
+let camElevation = Math.PI / 4;
+let camDist = 18;
+let isDragging = false;
+let dragStart = { x:0, y:0 };
+let lastPinchDist = 0;
+
+// Wave spawning
+let spawnQueue = [];
+let spawnTimer = 0;
+let enemyId = 0;
+
+// ============================================================
+// INIT THREE.JS
+// ============================================================
+function initThree() {
+  const canvas = document.getElementById('canvas');
+  
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.LinearToneMapping;
+  renderer.toneMappingExposure = 1.0;
+  
+  scene = new THREE.Scene();
+  
+  // Kenney dark-grey — sky and floor are SAME color family
+  const SKY_COLOR = 0x39393b;
+  scene.background = new THREE.Color(SKY_COLOR);
+
+  // Checkered floor — #3d3d3f light / #39393b dark (exact Kenney preview grid)
+  const _cc = document.createElement('canvas');
+  _cc.width = 128; _cc.height = 128;
+  const _cx = _cc.getContext('2d');
+  _cx.fillStyle = '#3d3d3f'; _cx.fillRect(0,0,128,128);  // светлые клетки
+  _cx.fillStyle = '#39393b';                               // тёмные клетки
+  _cx.fillRect(0,0,64,64); _cx.fillRect(64,64,64,64);
+  const _ct = new THREE.CanvasTexture(_cc);
+  _ct.wrapS = _ct.wrapT = THREE.RepeatWrapping;
+  _ct.repeat.set(80,80);
+  const _fl = new THREE.Mesh(
+    new THREE.PlaneGeometry(500,500),
+    new THREE.MeshBasicMaterial({map:_ct})
+  );
+  _fl.rotation.x = -Math.PI/2;
+  _fl.position.set((GRID_W-1)/2*TILE_SIZE, -0.31, (GRID_H-1)/2*TILE_SIZE);
+  scene.add(_fl);
+
+  // Camera
+  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+  updateCamera();
+  
+  raycaster = new THREE.Raycaster();
+  
+  // Kenney-style lighting: hemisphere sky/ground + moderate warm sun + soft cool fill
+  // HemisphereLight gives smooth ambient gradient — no harsh overexposure
+  const hemiLight = new THREE.HemisphereLight(0xfff5e0, 0x8899bb, 0.85);
+  scene.add(hemiLight);
+
+  // Warm sun — moderate, upper-left, soft shadows
+  const dirLight = new THREE.DirectionalLight(0xfff0d0, 1.4);
+  dirLight.position.set(8, 20, 10);
+  dirLight.castShadow = true;
+  dirLight.shadow.mapSize.width = 2048;
+  dirLight.shadow.mapSize.height = 2048;
+  dirLight.shadow.camera.near = 0.1;
+  dirLight.shadow.camera.far = 80;
+  dirLight.shadow.camera.left = -25;
+  dirLight.shadow.camera.right = 25;
+  dirLight.shadow.camera.top = 25;
+  dirLight.shadow.camera.bottom = -25;
+  dirLight.shadow.bias = -0.001;
+  dirLight.shadow.normalBias = 0.02;
+  scene.add(dirLight);
+
+  // Cool blue fill — depth without harshness
+  const fillLight = new THREE.DirectionalLight(0x99bbee, 0.5);
+  fillLight.position.set(-10, 8, -8);
+  scene.add(fillLight);
+  
+  window.addEventListener('resize', onResize);
+}
+
+function updateCamera() {
+  const x = camTarget.x + camDist * Math.sin(camElevation) * Math.sin(camAngle);
+  const y = camTarget.y + camDist * Math.cos(camElevation);
+  const z = camTarget.z + camDist * Math.sin(camElevation) * Math.cos(camAngle);
+  camera.position.set(x, y, z);
+  camera.lookAt(camTarget);
+}
+
+function onResize() {
+  if (!renderer) return;
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+}
+
+// ============================================================
+// BUILD MAP
+// ============================================================
+
+// PROVEN by vertex analysis of GLB files:
+// tile-straight rot=0 → N-S road (z-axis)
+// tile-straight rot=PI/2 → E-W road (x-axis)
+// tile-corner-round rot=0   → connects East(x+) + South(z+)
+// tile-corner-round rot=PI/2  → connects South(z+) + West(x-)   [90° CW]
+// tile-corner-round rot=PI    → connects West(x-)  + North(z-)   [180°]
+// tile-corner-round rot=-PI/2 → connects North(z-) + East(x+)   [90° CCW]
+function getRoadTileInfo(g, r, c) {
+  const W=[TILE_ROAD,TILE_BRIDGE,TILE_START,TILE_END];
+  const N=r>0&&W.includes(g[r-1][c]);
+  const S=r<GRID_H-1&&W.includes(g[r+1][c]);
+  const Ww=c>0&&W.includes(g[r][c-1]);
+  const E=c<GRID_W-1&&W.includes(g[r][c+1]);
+  const cnt=(N?1:0)+(S?1:0)+(Ww?1:0)+(E?1:0);
+
+  if((N||S)&&!(Ww||E)) return{model:'tile_straight',rot:0};
+  if((Ww||E)&&!(N||S)) return{model:'tile_straight',rot:Math.PI/2};
+
+  // Corners: rot=0→E+S, rot=PI/2→S+W, rot=PI→W+N, rot=-PI/2→N+E
+  if(E&&S&&!N&&!Ww) return{model:'tile_corner_round',rot:0};
+  if(S&&Ww&&!N&&!E) return{model:'tile_corner_round',rot:Math.PI/2};
+  if(Ww&&N&&!S&&!E) return{model:'tile_corner_round',rot:Math.PI};
+  if(N&&E&&!S&&!Ww) return{model:'tile_corner_round',rot:-Math.PI/2};
+
+  if(cnt>=3) return{model:'tile_crossing',rot:0};
+  return{model:'tile_straight',rot:0};
+}
+
+function scaleTo(obj,size) {
+  const box=new THREE.Box3().setFromObject(obj);
+  const sz=new THREE.Vector3(); box.getSize(sz);
+  const m=Math.max(sz.x,sz.z);
+  if(m>0.01){const s=size/m;obj.scale.set(s,s,s);}
+}
+
+// Rich decoration pool: trees, rocks, crystals, structures
+const DECO_POOL=[
+  {k:'detail_tree',w:6},{k:'detail_tree',w:6},{k:'detail_tree_large',w:4},
+  {k:'detail_rocks',w:3},{k:'detail_rocks_large',w:2},
+  {k:'detail_crystal',w:2},{k:'detail_crystal_large',w:1},
+  {k:'wood_structure_part',w:2},{k:'detail_dirt',w:3},
+];
+const TREE_POOL=['tile_tree','tile_tree','tile_tree_double','tile_tree_quad','tile_tree'];
+const GRASS_POOL=['tile','tile','tile','tile_bump','tile_bump','tile_dirt','tile_hill'];
+const ROCK_POOL=['tile_rock','tile_crystal','tile_rock'];
+
+
+// Atomically clears ALL scene children except lights and the checkered floor,
+// then re-adds them. Fixes map-overlap when switching editor→game or game→editor.
+function clearScene() {
+  // Collect what to keep: lights + the floor plane
+  const keep = [];
+  scene.children.forEach(child => {
+    if (child.isLight) { keep.push(child); return; }
+    if (child.isMesh && child.geometry && child.geometry.type === 'PlaneGeometry') { keep.push(child); return; }
+  });
+  // Remove everything
+  while (scene.children.length > 0) scene.remove(scene.children[0]);
+  // Restore keepers
+  keep.forEach(o => scene.add(o));
+  // Reset tracking arrays
+  tileObjects = [];
+  tileMeshGrid = Array.from({length: GRID_H}, () => Array(GRID_W).fill(null));
+  // Hide hover mesh (it will be re-created if editor opens again)
+  edHoverMesh = null;
+}
+
+function buildMap(g) {
+  clearScene();
+
+  for(let r=0;r<GRID_H;r++) for(let c=0;c<GRID_W;c++) {
+    const tt=g[r][c];
+    let key,rot=0;
+
+    if(tt===TILE_START)     {key='tile_spawn_round';}
+    else if(tt===TILE_END)  {key='tile_end_round';}
+    else if(tt===TILE_ROAD) {const i=getRoadTileInfo(g,r,c);key=i.model;rot=i.rot;}
+    else if(tt===TILE_TREE) {key=TREE_POOL[(r*13+c*7)%TREE_POOL.length];rot=((r*3+c*11)%4)*Math.PI/2;}
+    else if(tt===TILE_ROCK) {key=ROCK_POOL[(r*5+c*9)%ROCK_POOL.length];rot=((r*7+c*3)%4)*Math.PI/2;}
+    else                    {key=GRASS_POOL[(r*3+c*7)%GRASS_POOL.length];rot=((r*5+c*9)%4)*Math.PI/2;}
+
+    let obj=assets.clone(key);
+    if(!obj){
+      const clr={[TILE_GRASS]:0x7bc965,[TILE_ROAD]:0xd4a76a,[TILE_TREE]:0x4a8840,
+                 [TILE_ROCK]:0x9a9a8a,[TILE_START]:0xffdd44,[TILE_END]:0xff6644};
+      obj=new THREE.Mesh(new THREE.BoxGeometry(0.95,0.18,0.95),
+          new THREE.MeshLambertMaterial({color:clr[tt]||0x7bc965}));
+    }
+    scaleTo(obj,TILE_SIZE);
+    obj.rotation.y=rot;
+    obj.position.set(c*TILE_SIZE,0,r*TILE_SIZE);
+    obj.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});
+    obj.userData={type:'tile',row:r,col:c,tileType:tt};
+    scene.add(obj); tileObjects.push(obj); tileMeshGrid[r][c]=obj;
+  }
+
+  // === RICH DECORATIONS on open grass tiles ===
+  // Weighted random decoration selection
+  const decoTotal=DECO_POOL.reduce((a,d)=>a+d.w,0);
+  function pickDeco(h){
+    let v=h%decoTotal,acc=0;
+    for(const d of DECO_POOL){acc+=d.w;if(v<acc)return d.k;}
+    return DECO_POOL[0].k;
+  }
+
+  for(let r=0;r<GRID_H;r++) for(let c=0;c<GRID_W;c++) {
+    if(g[r][c]!==TILE_GRASS) continue;
+    // Check if adjacent to road (those are tower placement spots, keep clean)
+    const adjRoad=[[-1,0],[1,0],[0,-1],[0,1]].some(([dr,dc])=>{
+      const nr=r+dr,nc=c+dc;
+      return nr>=0&&nr<GRID_H&&nc>=0&&nc<GRID_W&&[TILE_ROAD,TILE_START,TILE_END].includes(g[nr][nc]);
+    });
+    if(adjRoad) continue;
+    const h=(r*41+c*23+r*c*7)%30;
+    if(h>=13) continue; // ~43% of deep grass gets decoration
+    const mk=pickDeco(h);
+    const det=assets.clone(mk);
+    if(!det) continue;
+    scaleTo(det,TILE_SIZE*(0.5+((h%5)*0.08)));
+    det.rotation.y=(h*1.31);
+    const ox=((h%7)-3)*0.06,oz=((h%5)-2)*0.06;
+    det.position.set(c*TILE_SIZE+ox,0,r*TILE_SIZE+oz);
+    det.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});
+    scene.add(det); tileObjects.push(det);
+  }
+
+  camTarget.set((GRID_W-1)/2*TILE_SIZE,0,(GRID_H-1)/2*TILE_SIZE);
+  updateCamera();
+}
+
+// ============================================================
+// MAP EDITOR
+// ============================================================
+let editorGrid = null;
+let editorActive = false;
+let edSelectedTile = { type: TILE_ROAD, modelKey: 'tile_straight', label: '🛤 Road', rot: 0 };
+let edSelectedCell = null; // { r, c }
+
+const ED_PALETTE = [
+  // Roads
+  { type:TILE_ROAD,   modelKey:'tile_straight',     label:'Road',      icon:'🛤',  cat:'Road' },
+  { type:TILE_ROAD,   modelKey:'tile_corner_round',  label:'Corner',    icon:'↩',   cat:'Road' },
+  { type:TILE_ROAD,   modelKey:'tile_crossing',      label:'Cross',     icon:'✛',   cat:'Road' },
+  { type:TILE_ROAD,   modelKey:'tile_wide_straight', label:'Wide',      icon:'═',   cat:'Road' },
+  { type:TILE_ROAD,   modelKey:'tile_wide_corner',   label:'W.Corner',  icon:'⌐',   cat:'Road' },
+  { type:TILE_ROAD,   modelKey:'tile_split',         label:'Split',     icon:'⊢',   cat:'Road' },
+  { type:TILE_ROAD,   modelKey:'tile_bump',          label:'Bump',      icon:'⛰',   cat:'Road' },
+  { type:TILE_ROAD,   modelKey:'tile_hill',          label:'Hill',      icon:'⛺',   cat:'Road' },
+  // Special
+  { type:TILE_START,  modelKey:'tile_spawn_round',   label:'Start',     icon:'🟢',  cat:'Special' },
+  { type:TILE_END,    modelKey:'tile_end_round',     label:'End',       icon:'🔴',  cat:'Special' },
+  // Nature
+  { type:TILE_GRASS,  modelKey:'tile',               label:'Grass',     icon:'🟩',  cat:'Nature' },
+  { type:TILE_GRASS,  modelKey:'tile_dirt',          label:'Dirt',      icon:'🟫',  cat:'Nature' },
+  { type:TILE_TREE,   modelKey:'tile_tree',          label:'Tree',      icon:'🌲',  cat:'Nature' },
+  { type:TILE_TREE,   modelKey:'tile_tree_double',   label:'2 Trees',   icon:'🌳',  cat:'Nature' },
+  { type:TILE_TREE,   modelKey:'tile_tree_quad',     label:'4 Trees',   icon:'🌴',  cat:'Nature' },
+  { type:TILE_ROCK,   modelKey:'tile_rock',          label:'Rock',      icon:'🪨',  cat:'Nature' },
+  { type:TILE_ROCK,   modelKey:'tile_crystal',       label:'Crystal',   icon:'💎',  cat:'Nature' },
+  // Water
+  { type:TILE_WATER,  modelKey:'tile_river_straight',label:'River',     icon:'🌊',  cat:'Water' },
+  { type:TILE_WATER,  modelKey:'tile_river_corner',  label:'R.Corner',  icon:'〰',   cat:'Water' },
+  { type:TILE_BRIDGE, modelKey:'tile_river_bridge',  label:'Bridge',    icon:'🌉',  cat:'Water' },
+  // Structures
+  { type:TILE_GRASS,  modelKey:'wood_structure',     label:'Fence',     icon:'🏚',  cat:'Decor' },
+  { type:TILE_GRASS,  modelKey:'wood_structure_high',label:'Tower',     icon:'🗼',  cat:'Decor' },
+];
+
+// Per-cell custom model + rotation overrides for editor
+let edCellData = {}; // key "r,c" -> { modelKey, rot, tileType }
+
+function edKey(r,c){ return r+','+c; }
+
+function buildEditorPalette() {
+  const pal = document.getElementById('ed-palette');
+  pal.innerHTML = '';
+  let lastCat = '';
+  ED_PALETTE.forEach((item,i) => {
+    if(item.cat !== lastCat) {
+      const hdr = document.createElement('div');
+      hdr.style.cssText='color:#f5a623;font-size:0.55rem;font-weight:700;text-align:center;padding:4px 0 2px;letter-spacing:0.08em;';
+      hdr.textContent = item.cat.toUpperCase();
+      pal.appendChild(hdr);
+      lastCat = item.cat;
+    }
+    const btn = document.createElement('div');
+    btn.style.cssText='padding:5px 3px;margin-bottom:3px;background:rgba(255,255,255,0.05);border:1.5px solid rgba(255,255,255,0.15);border-radius:6px;cursor:pointer;text-align:center;transition:all 0.15s;';
+    btn.innerHTML=`<div style="font-size:1.5rem;line-height:1.2;">${item.icon}</div><div style="font-size:0.58rem;color:#bbb;margin-top:2px;line-height:1.1;">${item.label}</div>`;
+    btn.addEventListener('click',()=>{
+      edSelectedTile={...item,rot:0};
+      edSelectedCell=null;
+      document.querySelectorAll('#ed-palette .ed-btn').forEach(b=>b.style.borderColor='rgba(255,255,255,0.15)');
+      btn.style.borderColor='#f5a623';
+      btn.style.background='rgba(245,166,35,0.15)';
+      document.getElementById('ed-info').textContent=`✦ ${item.label} — tap map to place  |  ↺ ↻ rotate`;
+    });
+    btn.classList.add('ed-btn');
+    btn.dataset.ed=i;
+    if(i===0){btn.style.borderColor='#f5a623';btn.style.background='rgba(245,166,35,0.15)';}
+    pal.appendChild(btn);
+  });
+}
+
+function openEditor() {
+  editorActive = true;
+  edCellData = {};
+  // Start with a BLANK grid — only one grass tile in the center as reference
+  editorGrid = Array.from({length:GRID_H}, ()=>Array(GRID_W).fill(TILE_GRASS));
+  document.getElementById('editor-screen').style.display='flex';
+  document.getElementById('main-menu').classList.add('hidden');
+  buildEditorPalette();
+  if(!scene) { initThree(); }
+  buildEditorEmptyMap();
+  gameState = 'editor';
+}
+
+function buildEditorEmptyMap() {
+  clearScene();
+
+  // NO platform — just draw grid lines directly on the dark checkered floor
+  // Bright grid lines so user can see cells clearly
+  const lineMat=new THREE.LineBasicMaterial({color:0x555555,transparent:true,opacity:0.8});
+  for(let i=0;i<=GRID_W;i++){
+    const pts=[new THREE.Vector3(i*TILE_SIZE-0.5,0.02,-0.5),
+               new THREE.Vector3(i*TILE_SIZE-0.5,0.02,GRID_H*TILE_SIZE-0.5)];
+    const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),lineMat);
+    scene.add(line); tileObjects.push(line);
+  }
+  for(let i=0;i<=GRID_H;i++){
+    const pts=[new THREE.Vector3(-0.5,0.02,i*TILE_SIZE-0.5),
+               new THREE.Vector3(GRID_W*TILE_SIZE-0.5,0.02,i*TILE_SIZE-0.5)];
+    const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),lineMat);
+    scene.add(line); tileObjects.push(line);
+  }
+
+  // Place a single spawn tile in center as starting reference
+  const cr=Math.floor(GRID_H/2), cc=Math.floor(GRID_W/2);
+  editorGrid[cr][cc]=TILE_START;
+  edCellData[edKey(cr,cc)]={modelKey:'tile_spawn_round',rot:0,tileType:TILE_START};
+  rebuildEditorCell(cr,cc);
+
+  camTarget.set((GRID_W-1)/2*TILE_SIZE,0,(GRID_H-1)/2*TILE_SIZE);
+  camDist=22; camElevation=Math.PI/3.5;
+  updateCamera();
+}
+
+function closeEditor() {
+  editorActive = false;
+  gameState = 'menu';
+  clearScene();
+  document.getElementById('editor-screen').style.display='none';
+  document.getElementById('main-menu').classList.remove('hidden');
+}
+
+function editorPlaceTile(r, c) {
+  if(r<0||r>=GRID_H||c<0||c>=GRID_W) return;
+  const sel = edSelectedTile;
+  editorGrid[r][c] = sel.type;
+  edCellData[edKey(r,c)] = { modelKey: sel.modelKey, rot: sel.rot, tileType: sel.type };
+  rebuildEditorCell(r, c);
+  edSelectedCell = { r, c };
+}
+
+function rebuildEditorCell(r, c) {
+  // Remove old tile object
+  const old = tileMeshGrid[r][c];
+  if(old) { scene.remove(old); tileObjects = tileObjects.filter(o=>o!==old); }
+
+  const data = edCellData[edKey(r,c)];
+  const tt = editorGrid[r][c];
+  let key, rot;
+  if(data) { key=data.modelKey; rot=data.rot; }
+  else {
+    const info = tt===TILE_ROAD ? getRoadTileInfo(editorGrid,r,c) : {model:'tile',rot:0};
+    key=info.model; rot=info.rot;
+  }
+
+  let obj = assets.clone(key);
+  if(!obj) {
+    obj=new THREE.Mesh(new THREE.BoxGeometry(0.95,0.18,0.95),
+      new THREE.MeshLambertMaterial({color:0x888888}));
+  }
+  scaleTo(obj, TILE_SIZE);
+  obj.rotation.y = rot;
+  obj.position.set(c*TILE_SIZE, 0, r*TILE_SIZE);
+  obj.traverse(m=>{if(m.isMesh){m.castShadow=true;m.receiveShadow=true;}});
+  obj.userData={type:'tile',row:r,col:c,tileType:tt};
+  // Highlight selected cell
+  if(edSelectedCell && edSelectedCell.r===r && edSelectedCell.c===c) {
+    obj.traverse(m=>{if(m.isMesh&&m.material){
+      m.material = m.material.clone();
+      m.material.emissive = new THREE.Color(0x225522);
+    }});
+  }
+  scene.add(obj); tileObjects.push(obj); tileMeshGrid[r][c]=obj;
+}
+
+function edRotateSelected(dir) {
+  // dir: +1 = CW, -1 = CCW
+  edSelectedTile.rot = (edSelectedTile.rot + dir*Math.PI/2);
+  if(edSelectedCell) {
+    const {r,c}=edSelectedCell;
+    if(!edCellData[edKey(r,c)]) edCellData[edKey(r,c)]={modelKey:edSelectedTile.modelKey,rot:0,tileType:edSelectedTile.type};
+    edCellData[edKey(r,c)].rot = edSelectedTile.rot;
+    rebuildEditorCell(r,c);
+  }
+  document.getElementById('ed-info').textContent=`Rotation: ${Math.round(edSelectedTile.rot*180/Math.PI)}°`;
+}
+
+function saveEditorMap() {
+  // Validate: must have start and end
+  let hasStart = false, hasEnd = false;
+  for(let r=0;r<GRID_H;r++) for(let c=0;c<GRID_W;c++) {
+    if(editorGrid[r][c]===TILE_START) hasStart=true;
+    if(editorGrid[r][c]===TILE_END) hasEnd=true;
+  }
+  if(!hasStart || !hasEnd) {
+    document.getElementById('ed-info').textContent = '⚠ Map needs a Start tile (🟢) and End tile (🔴) to save!';
+    return;
+  }
+  // Check path exists
+  const testPath = computePath(editorGrid);
+  if(testPath.length < 2) {
+    document.getElementById('ed-info').textContent = '⚠ No valid path from Start to End! Connect them with Road tiles.';
+    return;
+  }
+
+  const name = prompt('Enter map name:', 'My Map ' + (Date.now()%1000));
+  if(!name) return;
+
+  const saved = JSON.parse(localStorage.getItem('td_saved_maps') || '[]');
+  saved.push({
+    name,
+    grid: editorGrid.map(r=>[...r]),
+    cellData: {...edCellData},
+    date: new Date().toLocaleDateString()
+  });
+  localStorage.setItem('td_saved_maps', JSON.stringify(saved));
+  document.getElementById('ed-info').textContent = `✅ Map "${name}" saved! (${saved.length} maps total)`;
+}
+
+function setupEditorEvents() {
+  document.getElementById('ed-rotate-cw').addEventListener('click', ()=>edRotateSelected(1));
+  document.getElementById('ed-rotate-ccw').addEventListener('click', ()=>edRotateSelected(-1));
+  document.getElementById('btn-editor-back').addEventListener('click', closeEditor);
+  document.getElementById('ed-save').addEventListener('click', saveEditorMap);
+  document.getElementById('ed-clear').addEventListener('click', ()=>{
+    edCellData={};
+    editorGrid=Array.from({length:GRID_H},()=>Array(GRID_W).fill(TILE_GRASS));
+    buildEditorEmptyMap();
+  });
+  document.getElementById('ed-play').addEventListener('click', ()=>{
+    // Validate map before playing
+    let hasStart = false, hasEnd = false;
+    for(let r=0;r<GRID_H;r++) for(let c=0;c<GRID_W;c++) {
+      if(editorGrid[r][c]===TILE_START) hasStart=true;
+      if(editorGrid[r][c]===TILE_END) hasEnd=true;
+    }
+    if(!hasStart || !hasEnd) {
+      document.getElementById('ed-info').textContent = '⚠ Place a Start tile (🟢) and End tile (🔴) first!';
+      return;
+    }
+    const testPath = computePath(editorGrid);
+    if(testPath.length < 2) {
+      document.getElementById('ed-info').textContent = '⚠ No valid path! Connect Start to End with Road tiles.';
+      return;
+    }
+    // Pass a deep copy of the current editor grid
+    const mapCopy = editorGrid.map(r=>[...r]);
+    document.getElementById('editor-screen').style.display='none';
+    editorActive=false;
+    startGame(mapCopy);
+  });
+}
+
+// ============================================================
+// PLACE TOWER
+// ============================================================
+function placeTower(row, col, def) {
+  if (gold < def.cost) return false;
+  if (grid[row][col] !== TILE_GRASS) return false;
+  if (towers.find(t => t.row===row && t.col===col)) return false;
+  
+  gold -= def.cost;
+  updateHUD();
+  
+  const tower = {
+    id: Date.now() + Math.random(),
+    row, col, def,
+    level: 1,
+    damage: def.damage,
+    range: def.range,
+    attackSpeed: def.attackSpeed,
+    cooldown: 0,
+    totalSpent: def.cost,
+    special: def.special || null,
+  };
+  towers.push(tower);
+  
+  // 3D model
+  let model = assets.clone(def.modelKey);
+  if (!model) {
+    const geo = new THREE.CylinderGeometry(0.25, 0.3, 0.7, 8);
+    const mat = new THREE.MeshLambertMaterial({ color: def.color || 0x888888 });
+    model = new THREE.Mesh(geo, mat);
+  }
+  
+  // Scale
+  const box = new THREE.Box3().setFromObject(model);
+  const sz = new THREE.Vector3();
+  box.getSize(sz);
+  const maxDim = Math.max(sz.x, sz.y, sz.z);
+  if (maxDim > 0) {
+    const s = 0.7 / maxDim;
+    model.scale.set(s, s, s);
+  }
+  
+  model.position.set(col * TILE_SIZE, 0.15, row * TILE_SIZE);
+  model.traverse(m => { if(m.isMesh) { m.castShadow=true; } });
+  model.userData = { towerId: tower.id };
+  scene.add(model);
+  towerMeshes[tower.id] = model;
+  
+  return true;
+}
+
+function upgradeTower(tower) {
+  if (tower.level >= 4) return false;
+  const upg = UPGRADE_MULT[tower.level - 1];
+  const cost = Math.floor(tower.def.cost * upg.cost);
+  if (gold < cost) return false;
+  
+  gold -= cost;
+  tower.totalSpent += cost;
+  tower.damage = Math.floor(tower.def.damage * upg.damage);
+  tower.range = tower.def.range * upg.range;
+  tower.attackSpeed = tower.def.attackSpeed * upg.attackSpeed;
+  tower.level++;
+  
+  // Visual upgrade indicator
+  const mesh = towerMeshes[tower.id];
+  if (mesh) {
+    mesh.scale.multiplyScalar(1.1);
+    // Flash
+    mesh.traverse(m => {
+      if (m.isMesh && m.material) {
+        const orig = m.material.emissive ? m.material.emissive.clone() : new THREE.Color(0);
+        if (m.material.emissive) m.material.emissive.set(0xffff00);
+        setTimeout(() => { if(m.material.emissive) m.material.emissive.copy(orig); }, 300);
+      }
+    });
+  }
+  
+  updateHUD();
+  showTowerInfo(tower);
+  return true;
+}
+
+function sellTower(tower) {
+  const idx = towers.indexOf(tower);
+  if (idx === -1) return;
+  
+  gold += Math.floor(tower.totalSpent * 0.6);
+  towers.splice(idx, 1);
+  
+  const mesh = towerMeshes[tower.id];
+  if (mesh) { scene.remove(mesh); delete towerMeshes[tower.id]; }
+  
+  hideTowerInfo();
+  updateHUD();
+}
+
+// ============================================================
+// ENEMIES
+// ============================================================
+function spawnEnemy(typeId, hpMult) {
+  const def = ENEMY_DEFS.find(e => e.id === typeId) || ENEMY_DEFS[0];
+  
+  let model = assets.clone(def.modelKey);
+  if (!model) {
+    const geo = new THREE.SphereGeometry(0.25, 8, 6);
+    const mat = new THREE.MeshLambertMaterial({ color: def.color });
+    model = new THREE.Mesh(geo, mat);
+  }
+  
+  const box = new THREE.Box3().setFromObject(model);
+  const sz = new THREE.Vector3();
+  box.getSize(sz);
+  const maxDim = Math.max(sz.x, sz.y, sz.z);
+  const s = (def.scale || 0.4) / maxDim;
+  model.scale.set(s, s, s);
+  
+  // Start position
+  const startCell = path[0];
+  model.position.set(startCell[1] * TILE_SIZE, 0.3, startCell[0] * TILE_SIZE);
+  model.traverse(m => { if(m.isMesh) m.castShadow = true; });
+  scene.add(model);
+  
+  // Health bar (sprite)
+  const hbCanvas = document.createElement('canvas');
+  hbCanvas.width = 64; hbCanvas.height = 8;
+  const hbCtx = hbCanvas.getContext('2d');
+  const hbTex = new THREE.CanvasTexture(hbCanvas);
+  const hbMat = new THREE.SpriteMaterial({ map: hbTex, depthTest: false });
+  const hbSprite = new THREE.Sprite(hbMat);
+  hbSprite.scale.set(0.8, 0.1, 1);
+  hbSprite.position.set(0, 0.6, 0);
+  model.add(hbSprite);
+  
+  const maxHp = def.hp * hpMult;
+  const enemy = {
+    id: ++enemyId,
+    def, model, hbCanvas, hbCtx, hbTex, hbSprite,
+    hp: maxHp, maxHp,
+    speed: def.speed,
+    pathIdx: 0,
+    dead: false,
+    reached: false,
+    slowTimer: 0,
+    poisonTimer: 0,
+    poisonDmg: 0,
+    stunTimer: 0,
+  };
+  
+  enemies.push(enemy);
+  updateHealthBar(enemy);
+  return enemy;
+}
+
+function updateHealthBar(enemy) {
+  const pct = Math.max(0, enemy.hp / enemy.maxHp);
+  const ctx = enemy.hbCtx;
+  ctx.clearRect(0, 0, 64, 8);
+  ctx.fillStyle = '#333';
+  ctx.fillRect(0, 0, 64, 8);
+  ctx.fillStyle = pct > 0.5 ? '#2ecc71' : pct > 0.25 ? '#f39c12' : '#e74c3c';
+  ctx.fillRect(1, 1, Math.floor(pct * 62), 6);
+  enemy.hbTex.needsUpdate = true;
+}
+
+function damageEnemy(enemy, dmg, effect) {
+  if (enemy.dead) return;
+  enemy.hp -= dmg;
+  updateHealthBar(enemy);
+  
+  if (effect === 'slow') enemy.slowTimer = Math.max(enemy.slowTimer, 2);
+  if (effect === 'freeze') enemy.slowTimer = Math.max(enemy.slowTimer, 3);
+  if (effect === 'poison') { enemy.poisonTimer = 5; enemy.poisonDmg = dmg * 0.1; }
+  if (effect === 'stun') enemy.stunTimer = Math.max(enemy.stunTimer, 1.5);
+  
+  spawnHitParticle(enemy.model.position.clone(), dmg);
+  
+  if (enemy.hp <= 0) killEnemy(enemy);
+}
+
+function killEnemy(enemy) {
+  if (enemy.dead) return;
+  enemy.dead = true;
+  gold += enemy.def.reward;
+  updateHUD();
+  spawnDeathParticles(enemy.model.position.clone());
+  scene.remove(enemy.model);
+}
+
+// ============================================================
+// PROJECTILES
+// ============================================================
+function fireProjectile(tower, enemy) {
+  const startPos = new THREE.Vector3(
+    tower.col * TILE_SIZE, 0.5, tower.row * TILE_SIZE
+  );
+  
+  const geo = new THREE.SphereGeometry(0.08, 6, 4);
+  const colors = { cannon:0xffaa00, sniper:0x66aaff, machinegun:0x44ff44, freeze:0x88eeff, lightning:0xffff44 };
+  const mat = new THREE.MeshBasicMaterial({ color: colors[tower.def.id] || 0xffffff });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.copy(startPos);
+  scene.add(mesh);
+  
+  const proj = {
+    mesh,
+    targetId: enemy.id,
+    tower,
+    damage: tower.damage,
+    speed: 8,
+    dead: false,
+  };
+  projectiles.push(proj);
+}
+
+// ============================================================
+// PARTICLES
+// ============================================================
+function spawnHitParticle(pos, dmg) {
+  for (let i = 0; i < 3; i++) {
+    const geo = new THREE.SphereGeometry(0.05, 4, 3);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xffcc44 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(pos);
+    scene.add(mesh);
+    particles.push({
+      mesh,
+      vel: new THREE.Vector3((Math.random()-0.5)*2, Math.random()*3, (Math.random()-0.5)*2),
+      life: 0.4,
+      maxLife: 0.4,
+    });
+  }
+}
+
+function spawnDeathParticles(pos) {
+  for (let i = 0; i < 8; i++) {
+    const geo = new THREE.SphereGeometry(0.07, 4, 3);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xff4422 });
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(pos);
+    scene.add(mesh);
+    particles.push({
+      mesh,
+      vel: new THREE.Vector3((Math.random()-0.5)*4, Math.random()*5+1, (Math.random()-0.5)*4),
+      life: 0.8,
+      maxLife: 0.8,
+    });
+  }
+}
+
+// ============================================================
+// GAME LOOP
+// ============================================================
+let lastTime = 0;
+let rangeRing = null;
+
+function gameLoop(ts) {
+  animFrameId = requestAnimationFrame(gameLoop);
+  
+  const dt = Math.min((ts - lastTime) / 1000, 0.1) * gameSpeed;
+  lastTime = ts;
+  
+  if (gameState !== 'playing') {
+    renderer.render(scene, camera);
+    return;
+  }
+  
+  updateEnemies(dt);
+  updateTowers(dt);
+  updateProjectiles(dt);
+  updateParticles(dt);
+  updateWaveSpawner(dt);
+  checkWaveComplete();
+  
+  renderer.render(scene, camera);
+}
+
+function updateEnemies(dt) {
+  for (const enemy of enemies) {
+    if (enemy.dead || enemy.reached) continue;
+    
+    if (enemy.stunTimer > 0) { enemy.stunTimer -= dt; continue; }
+    
+    // Status effects
+    if (enemy.poisonTimer > 0) {
+      enemy.poisonTimer -= dt;
+      damageEnemy(enemy, enemy.poisonDmg * dt, null);
+    }
+    
+    const speed = enemy.slowTimer > 0 ? enemy.speed * 0.4 : enemy.speed;
+    if (enemy.slowTimer > 0) enemy.slowTimer -= dt;
+    
+    // Move along path
+    if (enemy.pathIdx >= path.length - 1) {
+      // Reached end
+      enemy.reached = true;
+      lives--;
+      updateHUD();
+      scene.remove(enemy.model);
+      if (lives <= 0) triggerGameOver();
+      continue;
+    }
+    
+    const nextCell = path[enemy.pathIdx + 1];
+    const target = new THREE.Vector3(nextCell[1] * TILE_SIZE, 0.3, nextCell[0] * TILE_SIZE);
+    const dir = target.clone().sub(enemy.model.position);
+    const dist = dir.length();
+    
+    if (dist < 0.05) {
+      enemy.pathIdx++;
+    } else {
+      dir.normalize();
+      enemy.model.position.add(dir.multiplyScalar(speed * dt));
+      enemy.model.rotation.y = Math.atan2(dir.x, dir.z);
+    }
+  }
+  
+  // Clean dead/reached
+  enemies = enemies.filter(e => !e.dead && !e.reached);
+}
+
+function updateTowers(dt) {
+  for (const tower of towers) {
+    tower.cooldown = Math.max(0, tower.cooldown - dt);
+    if (tower.cooldown > 0) continue;
+    
+    // Find target
+    const tPos = new THREE.Vector3(tower.col * TILE_SIZE, 0, tower.row * TILE_SIZE);
+    let best = null, bestPathIdx = -1;
+    
+    for (const enemy of enemies) {
+      if (enemy.dead || enemy.reached) continue;
+      const dist = tPos.distanceTo(enemy.model.position);
+      if (dist > tower.range) continue;
+      if (enemy.pathIdx > bestPathIdx) { best = enemy; bestPathIdx = enemy.pathIdx; }
+    }
+    
+    if (!best) continue;
+    
+    tower.cooldown = 1 / tower.attackSpeed;
+    
+    // Special: lightning chains
+    if (tower.def.id === 'lightning') {
+      const nearby = enemies.filter(e => !e.dead && !e.reached &&
+        tPos.distanceTo(e.model.position) <= tower.range);
+      const targets = nearby.slice(0, 3);
+      targets.forEach(t => damageEnemy(t, tower.damage, null));
+      // Visual lightning effect
+      if (targets.length > 0) spawnHitParticle(targets[0].model.position.clone(), tower.damage);
+    } else {
+      const effect = tower.def.id === 'freeze' ? 'freeze' : 
+                     (tower.special || null);
+      fireProjectile(tower, best);
+    }
+    
+    // Rotate tower toward enemy
+    const mesh = towerMeshes[tower.id];
+    if (mesh) {
+      const dir = best.model.position.clone().sub(mesh.position);
+      mesh.rotation.y = Math.atan2(dir.x, dir.z);
+    }
+  }
+}
+
+function updateProjectiles(dt) {
+  for (const proj of projectiles) {
+    if (proj.dead) continue;
+    
+    const enemy = enemies.find(e => e.id === proj.targetId && !e.dead && !e.reached);
+    if (!enemy) {
+      proj.dead = true;
+      scene.remove(proj.mesh);
+      continue;
+    }
+    
+    const dir = enemy.model.position.clone().sub(proj.mesh.position);
+    const dist = dir.length();
+    
+    if (dist < 0.2) {
+      const effect = proj.tower.def.id === 'freeze' ? 'freeze' :
+                     proj.tower.def.id === 'cannon' ? null : 
+                     (proj.tower.special || null);
+      
+      // Splash for cannon
+      if (proj.tower.def.id === 'cannon') {
+        for (const e of enemies) {
+          if (e.dead || e.reached) continue;
+          if (enemy.model.position.distanceTo(e.model.position) < 1.2) {
+            damageEnemy(e, proj.damage * 0.5, null);
+          }
+        }
+        damageEnemy(enemy, proj.damage, null);
+      } else {
+        damageEnemy(enemy, proj.damage, effect);
+      }
+      
+      proj.dead = true;
+      scene.remove(proj.mesh);
+    } else {
+      dir.normalize();
+      proj.mesh.position.add(dir.multiplyScalar(proj.speed * dt));
+    }
+  }
+  
+  projectiles = projectiles.filter(p => !p.dead);
+}
+
+function updateParticles(dt) {
+  for (const p of particles) {
+    p.life -= dt;
+    if (p.life <= 0) {
+      scene.remove(p.mesh);
+      continue;
+    }
+    p.vel.y -= 9.8 * dt;
+    p.mesh.position.add(p.vel.clone().multiplyScalar(dt));
+    const a = p.life / p.maxLife;
+    if (p.mesh.material) p.mesh.material.opacity = a;
+  }
+  particles = particles.filter(p => p.life > 0);
+}
+
+function updateWaveSpawner(dt) {
+  if (!waveActive || spawnQueue.length === 0) return;
+  
+  spawnTimer -= dt;
+  if (spawnTimer <= 0 && spawnQueue.length > 0) {
+    const next = spawnQueue.shift();
+    spawnEnemy(next.type, next.hpMult);
+    spawnTimer = next.interval || 1;
+  }
+}
+
+function checkWaveComplete() {
+  if (!waveActive) return;
+  if (spawnQueue.length > 0) return;
+  if (enemies.some(e => !e.dead && !e.reached)) return;
+  
+  waveActive = false;
+  document.getElementById('btn-start-wave').textContent = 'Start Wave';
+  document.getElementById('btn-start-wave').classList.add('primary');
+  
+  if (wave >= TOTAL_WAVES) {
+    triggerVictory();
+  } else {
+    showWaveNotify(`Wave ${wave} Complete!`, `Prepare for Wave ${wave + 1}`);
+    // Bonus gold
+    gold += 50 + wave * 10;
+    updateHUD();
+  }
+}
+
+// ============================================================
+// WAVE MANAGEMENT
+// ============================================================
+function startWave() {
+  if (waveActive) return;
+  if (path.length < 2) { alert('No valid path!'); return; }
+  
+  wave++;
+  waveActive = true;
+  
+  const waveDef = buildWave(wave);
+  const si = waveDef.spawnInterval;
+  
+  spawnQueue = waveDef.enemies.map(e => ({ ...e, interval: si }));
+  spawnTimer = 0;
+  
+  document.getElementById('btn-start-wave').textContent = 'Wave Active';
+  document.getElementById('btn-start-wave').classList.remove('primary');
+  
+  const isBoss = wave % 5 === 0;
+  showWaveNotify(`Wave ${wave}${isBoss ? ' 👹 BOSS' : ''}!`, isBoss ? 'Boss incoming!' : 'Defend your base!');
+  
+  updateHUD();
+}
+
+function showWaveNotify(title, sub) {
+  const el = document.getElementById('wave-notify');
+  document.getElementById('wn-title').textContent = title;
+  document.getElementById('wn-sub').textContent = sub;
+  el.classList.remove('hidden');
+  setTimeout(() => el.classList.add('hidden'), 2500);
+}
+
+// ============================================================
+// UI
+// ============================================================
+function updateHUD() {
+  document.getElementById('hud-gold').textContent = gold;
+  document.getElementById('hud-lives').textContent = lives;
+  document.getElementById('hud-wave').textContent = wave + '/' + TOTAL_WAVES;
+  document.getElementById('wave-info').textContent = waveActive ? `Enemies: ${enemies.length + spawnQueue.length}` : 'Ready';
+  
+  // Update item card affordability
+  document.querySelectorAll('.item-card').forEach(card => {
+    const cost = parseInt(card.dataset.cost || '0');
+    card.classList.toggle('disabled', gold < cost);
+  });
+}
+
+function buildBottomPanel() {
+  const towersTab = document.getElementById('tab-towers');
+  const animalsTab = document.getElementById('tab-animals');
+  
+  towersTab.innerHTML = '';
+  animalsTab.innerHTML = '';
+  
+  TOWER_DEFS.forEach(def => {
+    const card = document.createElement('div');
+    card.className = 'item-card';
+    card.dataset.id = def.id;
+    card.dataset.cost = def.cost;
+    card.dataset.type = 'tower';
+    card.innerHTML = `<div class="item-icon">${def.icon}</div><div class="item-name">${def.name}</div><div class="item-cost">💰${def.cost}</div>`;
+    card.addEventListener('click', () => selectTowerType(def));
+    card.addEventListener('mouseenter', e => showTooltip(e, def.name, def.desc));
+    card.addEventListener('mouseleave', hideTooltip);
+    towersTab.appendChild(card);
+  });
+  
+  ANIMAL_DEFS.forEach(def => {
+    const card = document.createElement('div');
+    card.className = 'item-card';
+    card.dataset.id = def.id;
+    card.dataset.cost = def.cost;
+    card.dataset.type = 'animal';
+    card.innerHTML = `<div class="item-icon">${def.icon}</div><div class="item-name">${def.name}</div><div class="item-cost">💰${def.cost}</div>`;
+    card.addEventListener('click', () => selectTowerType(def));
+    card.addEventListener('mouseenter', e => showTooltip(e, def.name, def.desc));
+    card.addEventListener('mouseleave', hideTooltip);
+    animalsTab.appendChild(card);
+  });
+}
+
+function selectTowerType(def) {
+  if (gold < def.cost) return;
+  selectedTowerType = def;
+  selectedTower = null;
+  hideTowerInfo();
+  
+  document.querySelectorAll('.item-card').forEach(c => 
+    c.classList.toggle('selected', c.dataset.id === def.id));
+  
+  showRangeRing(null); // hide until hover
+}
+
+function deselectAll() {
+  selectedTowerType = null;
+  selectedTower = null;
+  document.querySelectorAll('.item-card').forEach(c => c.classList.remove('selected'));
+  hideTowerInfo();
+  removeRangeRing();
+}
+
+function showTowerInfo(tower) {
+  selectedTower = tower;
+  const panel = document.getElementById('tower-info');
+  panel.classList.remove('hidden');
+  
+  document.getElementById('ti-name').textContent = `${tower.def.icon} ${tower.def.name}`;
+  document.getElementById('ti-level').textContent = `${tower.level}/4`;
+  document.getElementById('ti-damage').textContent = tower.damage;
+  document.getElementById('ti-range').textContent = tower.range.toFixed(1);
+  document.getElementById('ti-speed').textContent = tower.attackSpeed.toFixed(1) + '/s';
+  
+  if (tower.level < 4) {
+    const upg = UPGRADE_MULT[tower.level - 1];
+    const cost = Math.floor(tower.def.cost * upg.cost);
+    document.getElementById('btn-upgrade').textContent = `Upgrade (💰${cost})`;
+    document.getElementById('btn-upgrade').disabled = false;
+  } else {
+    document.getElementById('btn-upgrade').textContent = 'Max Level';
+    document.getElementById('btn-upgrade').disabled = true;
+  }
+  
+  const sellVal = Math.floor(tower.totalSpent * 0.6);
+  document.getElementById('btn-sell').textContent = `Sell (💰${sellVal})`;
+  
+  showRangeRing(tower);
+}
+
+function hideTowerInfo() {
+  document.getElementById('tower-info').classList.add('hidden');
+  selectedTower = null;
+  removeRangeRing();
+}
+
+// Range ring (3D circle)
+let rangeRingMesh = null;
+function showRangeRing(tower) {
+  removeRangeRing();
+  if (!tower) return;
+  const geo = new THREE.RingGeometry(tower.range - 0.05, tower.range, 32);
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffcc44, side: THREE.DoubleSide, transparent: true, opacity: 0.25 });
+  rangeRingMesh = new THREE.Mesh(geo, mat);
+  rangeRingMesh.rotation.x = -Math.PI / 2;
+  rangeRingMesh.position.set(tower.col * TILE_SIZE, 0.05, tower.row * TILE_SIZE);
+  scene.add(rangeRingMesh);
+}
+
+function removeRangeRing() {
+  if (rangeRingMesh) { scene.remove(rangeRingMesh); rangeRingMesh = null; }
+}
+
+let hoverRangeRing = null;
+function showHoverRange(row, col, def) {
+  if (hoverRangeRing) { scene.remove(hoverRangeRing); hoverRangeRing = null; }
+  const geo = new THREE.RingGeometry(def.range - 0.05, def.range, 32);
+  const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide, transparent: true, opacity: 0.15 });
+  hoverRangeRing = new THREE.Mesh(geo, mat);
+  hoverRangeRing.rotation.x = -Math.PI / 2;
+  hoverRangeRing.position.set(col * TILE_SIZE, 0.05, row * TILE_SIZE);
+  scene.add(hoverRangeRing);
+}
+
+function hideHoverRange() {
+  if (hoverRangeRing) { scene.remove(hoverRangeRing); hoverRangeRing = null; }
+}
+
+function showTooltip(e, name, desc) {
+  const tt = document.getElementById('tooltip');
+  document.getElementById('tt-name').textContent = name;
+  document.getElementById('tt-desc').textContent = desc;
+  tt.classList.remove('hidden');
+  tt.style.left = (e.clientX + 12) + 'px';
+  tt.style.top = (e.clientY - 40) + 'px';
+}
+function hideTooltip() { document.getElementById('tooltip').classList.add('hidden'); }
+
+// ============================================================
+// INPUT HANDLING
+// ============================================================
+function onCanvasClick(e) {
+  const canvas = document.getElementById('canvas');
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  const mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  const mouse = new THREE.Vector2(mouseX, mouseY);
+
+  // Editor mode — always use ground plane for precise cell detection
+  if(editorActive) {
+    raycaster.setFromCamera(mouse, camera);
+    // Intersect ground plane at y=0
+    const groundPlane = new THREE.Plane(new THREE.Vector3(0,1,0), 0);
+    const pt = new THREE.Vector3();
+    raycaster.ray.intersectPlane(groundPlane, pt);
+    if(pt) {
+      // Map world position to grid cell (tiles are centered at col*TILE_SIZE, row*TILE_SIZE)
+      const c = Math.round(pt.x / TILE_SIZE);
+      const r = Math.round(pt.z / TILE_SIZE);
+      if(r>=0&&r<GRID_H&&c>=0&&c<GRID_W) {
+        editorPlaceTile(r, c);
+      }
+    }
+    return;
+  }
+
+  if (gameState !== 'playing') return;
+  
+  raycaster.setFromCamera(mouse, camera);
+  
+  // Check tile hits
+  const tileMeshes = tileObjects.filter(o => o.userData.type === 'tile');
+  const intersects = raycaster.intersectObjects(tileMeshes, true);
+  
+  let hitTile = null;
+  for (const hit of intersects) {
+    let obj = hit.object;
+    while (obj && !obj.userData.type) obj = obj.parent;
+    if (obj && obj.userData.type === 'tile') { hitTile = obj; break; }
+  }
+  
+  if (hitTile) {
+    const { row, col, tileType } = hitTile.userData;
+    
+    if (selectedTowerType && tileType === TILE_GRASS) {
+      placeTower(row, col, selectedTowerType);
+      return;
+    }
+    
+    // Check tower click
+    const towerHit = towers.find(t => t.row === row && t.col === col);
+    if (towerHit) {
+      showTowerInfo(towerHit);
+      return;
+    }
+  }
+  
+  // Check tower model click
+  const allMeshes = Object.values(towerMeshes);
+  const towerIntersects = raycaster.intersectObjects(allMeshes, true);
+  if (towerIntersects.length > 0) {
+    let obj = towerIntersects[0].object;
+    while (obj && !obj.userData.towerId) obj = obj.parent;
+    if (obj) {
+      const t = towers.find(t => t.id === obj.userData.towerId);
+      if (t) { showTowerInfo(t); return; }
+    }
+  }
+  
+  deselectAll();
+}
+
+// Editor hover highlight
+let edHoverMesh = null;
+function updateEditorHover(e) {
+  if(!editorActive) return;
+  const canvas = document.getElementById('canvas');
+  const rect = canvas.getBoundingClientRect();
+  const mouse = new THREE.Vector2(
+    ((e.clientX - rect.left) / rect.width) * 2 - 1,
+    -((e.clientY - rect.top) / rect.height) * 2 + 1
+  );
+  raycaster.setFromCamera(mouse, camera);
+  const gp = new THREE.Plane(new THREE.Vector3(0,1,0),0);
+  const pt = new THREE.Vector3();
+  raycaster.ray.intersectPlane(gp, pt);
+  if(!pt) { if(edHoverMesh) edHoverMesh.visible=false; return; }
+  const c=Math.round(pt.x/TILE_SIZE), r=Math.round(pt.z/TILE_SIZE);
+  if(r<0||r>=GRID_H||c<0||c>=GRID_W) { if(edHoverMesh) edHoverMesh.visible=false; return; }
+  if(!edHoverMesh) {
+    edHoverMesh = new THREE.Mesh(
+      new THREE.BoxGeometry(TILE_SIZE*0.98,0.05,TILE_SIZE*0.98),
+      new THREE.MeshBasicMaterial({color:0xf5a623,transparent:true,opacity:0.35})
+    );
+    edHoverMesh.position.y=0.12;
+    scene.add(edHoverMesh);
+  }
+  edHoverMesh.visible=true;
+  edHoverMesh.position.set(c*TILE_SIZE, 0.12, r*TILE_SIZE);
+}
+function onMouseMove(e) {
+  if (gameState !== 'playing' || !selectedTowerType) { hideHoverRange(); return; }
+  const canvas = document.getElementById('canvas');
+  const rect = canvas.getBoundingClientRect();
+  const mouse = new THREE.Vector2(
+    ((e.clientX - rect.left) / rect.width) * 2 - 1,
+    -((e.clientY - rect.top) / rect.height) * 2 + 1
+  );
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(tileObjects.filter(o => o.userData.type === 'tile'), true);
+  
+  for (const hit of intersects) {
+    let obj = hit.object;
+    while (obj && !obj.userData.type) obj = obj.parent;
+    if (obj && obj.userData.tileType === TILE_GRASS) {
+      showHoverRange(obj.userData.row, obj.userData.col, selectedTowerType);
+      return;
+    }
+  }
+  hideHoverRange();
+}
+
+// Camera drag
+let pointers = {};
+let isMoving = false;
+
+function onPointerDown(e) {
+  pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+  
+  if (Object.keys(pointers).length === 1) {
+    isDragging = false;
+    dragStart = { x: e.clientX, y: e.clientY };
+    isMoving = false;
+  }
+}
+
+function onPointerMove(e) {
+  if (!pointers[e.pointerId]) return;
+  
+  const keys = Object.keys(pointers);
+  
+  if (keys.length === 2) {
+    // Pinch zoom
+    const [p1, p2] = keys.map(k => pointers[k]);
+    const newP = { x: e.clientX, y: e.clientY };
+    const id = parseInt(e.pointerId);
+    
+    const otherKey = keys.find(k => parseInt(k) !== id);
+    const other = pointers[otherKey];
+    const cur = newP;
+    
+    const newDist = Math.hypot(cur.x - other.x, cur.y - other.y);
+    const oldDist = Math.hypot(pointers[e.pointerId].x - other.x, pointers[e.pointerId].y - other.y);
+    
+    if (lastPinchDist > 0) {
+      const delta = (oldDist - newDist) * 0.02;
+      camDist = Math.max(5, Math.min(35, camDist + delta));
+      updateCamera();
+    }
+    lastPinchDist = newDist;
+    pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+    return;
+  }
+  
+  const dx = e.clientX - pointers[e.pointerId].x;
+  const dy = e.clientY - pointers[e.pointerId].y;
+  
+  if (Math.abs(dx) + Math.abs(dy) > 5) isMoving = true;
+  
+  if (isMoving) {
+    camAngle -= dx * 0.005;
+    camElevation = Math.max(0.15, Math.min(1.3, camElevation + dy * 0.005));
+    updateCamera();
+  }
+  
+  pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+}
+
+function onPointerUp(e) {
+  if (!isMoving && Object.keys(pointers).length === 1) {
+    onCanvasClick(e);
+  }
+  delete pointers[e.pointerId];
+  lastPinchDist = 0;
+}
+
+function onWheel(e) {
+  camDist = Math.max(5, Math.min(35, camDist + e.deltaY * 0.02));
+  updateCamera();
+}
+
+// ============================================================
+// GAME FLOW
+// ============================================================
+function startGame(mapGrid) {
+  grid = mapGrid.map(r => [...r]);
+  path = computePath(grid);
+  
+  // Reset state
+  towers.forEach(t => { if(towerMeshes[t.id]) scene.remove(towerMeshes[t.id]); });
+  towers = [];
+  towerMeshes = {};
+  enemies.forEach(e => scene.remove(e.model));
+  enemies = [];
+  projectiles.forEach(p => scene.remove(p.mesh));
+  projectiles = [];
+  particles.forEach(p => scene.remove(p.mesh));
+  particles = [];
+  spawnQueue = [];
+  gold = 300;
+  lives = 20;
+  wave = 0;
+  waveActive = false;
+  gameSpeed = 1;
+  selectedTowerType = null;
+  selectedTower = null;
+  
+  // Clear ALL scene objects (fixes editor→game map overlap)
+  clearScene();
+  // Build 3D map
+  buildMap(grid);
+  
+  // Show game UI
+  document.getElementById('main-menu').classList.add('hidden');
+  document.getElementById('hud').classList.remove('hidden');
+  document.getElementById('bottom-panel').classList.remove('hidden');
+  document.getElementById('game-over-screen').classList.add('hidden');
+  document.getElementById('win-screen').classList.add('hidden');
+  
+  buildBottomPanel();
+  updateHUD();
+  
+  gameState = 'playing';
+  updateCamera();
+}
+
+function triggerGameOver() {
+  gameState = 'gameover';
+  document.getElementById('go-info').textContent = `Reached Wave ${wave} of ${TOTAL_WAVES}`;
+  document.getElementById('game-over-screen').classList.remove('hidden');
+}
+
+function triggerVictory() {
+  gameState = 'win';
+  document.getElementById('win-info').textContent = `All ${TOTAL_WAVES} waves survived! Gold: 💰${gold}`;
+  document.getElementById('win-screen').classList.remove('hidden');
+}
+
+function goToMenu() {
+  gameState = 'menu';
+  document.getElementById('hud').classList.add('hidden');
+  document.getElementById('bottom-panel').classList.add('hidden');
+  document.getElementById('tower-info').classList.add('hidden');
+  document.getElementById('game-over-screen').classList.add('hidden');
+  document.getElementById('win-screen').classList.add('hidden');
+  document.getElementById('main-menu').classList.remove('hidden');
+  hideTowerInfo();
+  deselectAll();
+}
+
+// ============================================================
+// EVENT LISTENERS
+// ============================================================
+function setupEvents() {
+  const canvas = document.getElementById('canvas');
+  canvas.addEventListener('pointerdown', onPointerDown);
+  canvas.addEventListener('pointermove', onPointerMove);
+  canvas.addEventListener('pointerup', onPointerUp);
+  canvas.addEventListener('pointercancel', e => delete pointers[e.pointerId]);
+  canvas.addEventListener('wheel', onWheel, { passive: true });
+  canvas.addEventListener('mousemove', e => { onMouseMove(e); updateEditorHover(e); });
+  
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+  
+  // HUD buttons
+  document.getElementById('btn-start-wave').addEventListener('click', startWave);
+  
+  document.getElementById('btn-speed').addEventListener('click', () => {
+    gameSpeed = gameSpeed === 1 ? 2 : gameSpeed === 2 ? 3 : 1;
+    document.getElementById('btn-speed').textContent = `×${gameSpeed}`;
+  });
+  
+  document.getElementById('btn-exit').addEventListener('click', goToMenu);
+  
+  // Tower info
+  document.getElementById('btn-upgrade').addEventListener('click', () => {
+    if (selectedTower) upgradeTower(selectedTower);
+  });
+  document.getElementById('btn-sell').addEventListener('click', () => {
+    if (selectedTower) sellTower(selectedTower);
+  });
+  document.getElementById('btn-deselect').addEventListener('click', deselectAll);
+  
+  // Main menu
+  document.getElementById('btn-play').addEventListener('click', () => startGame(DEFAULT_MAP));
+  document.getElementById('btn-maps').addEventListener('click', openMyMaps);
+  document.getElementById('btn-maps-close').addEventListener('click', () => {
+    document.getElementById('my-maps-modal').classList.add('hidden');
+  });
+  document.getElementById('btn-editor').addEventListener('click', openEditor);
+  setupEditorEvents();
+  
+  // Game over
+  document.getElementById('btn-go-retry').addEventListener('click', () => startGame(DEFAULT_MAP));
+  document.getElementById('btn-go-menu').addEventListener('click', goToMenu);
+  document.getElementById('btn-win-menu').addEventListener('click', goToMenu);
+}
+
+// ============================================================
+// MY MAPS
+// ============================================================
+function openMyMaps() {
+  const modal = document.getElementById('my-maps-modal');
+  const list = document.getElementById('my-maps-list');
+  const saved = JSON.parse(localStorage.getItem('td_saved_maps') || '[]');
+  
+  if(saved.length === 0) {
+    list.innerHTML = '<div style="color:#667;text-align:center;padding:20px;">No saved maps yet.<br>Create one in the Map Editor!</div>';
+  } else {
+    list.innerHTML = '';
+    saved.forEach((map, i) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:10px;margin-bottom:8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:8px;';
+      row.innerHTML = `
+        <div style="flex:1">
+          <div style="font-weight:700;color:#fff;">${map.name}</div>
+          <div style="font-size:0.75rem;color:#556;">${map.date}</div>
+        </div>
+        <button style="padding:5px 12px;border-radius:4px;border:1.5px solid #f5a623;background:#f5a623;color:#000;font-size:0.8rem;font-weight:700;cursor:pointer;" data-idx="${i}" class="mm-play">▶ Play</button>
+        <button style="padding:5px 12px;border-radius:4px;border:1.5px solid #e74c3c;background:transparent;color:#e74c3c;font-size:0.8rem;font-weight:700;cursor:pointer;" data-idx="${i}" class="mm-del">🗑</button>
+      `;
+      list.appendChild(row);
+    });
+    list.querySelectorAll('.mm-play').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.idx);
+        const map = saved[idx];
+        modal.classList.add('hidden');
+        startGame(map.grid);
+      });
+    });
+    list.querySelectorAll('.mm-del').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.dataset.idx);
+        saved.splice(idx, 1);
+        localStorage.setItem('td_saved_maps', JSON.stringify(saved));
+        openMyMaps(); // refresh
+      });
+    });
+  }
+  modal.classList.remove('hidden');
+}
+
+// ============================================================
+// MAIN
+// ============================================================
+async function main() {
+  initThree();
+  
+  updateProgress(20, 'Loading assets...');
+  
+  assets = new AssetManager();
+  await assets.loadAll({
+    // Grass tiles
+    tile: 'assets/td/tile.glb',
+    tile_hill: 'assets/td/tile-hill.glb',
+    tile_bump: 'assets/td/tile-bump.glb',
+    // Road tiles
+    tile_straight: 'assets/td/tile-straight.glb',
+    tile_corner_round: 'assets/td/tile-corner-round.glb',
+    tile_corner_square: 'assets/td/tile-corner-square.glb',
+    tile_corner_inner: 'assets/td/tile-corner-inner.glb',
+    tile_crossing: 'assets/td/tile-crossing.glb',
+    tile_split: 'assets/td/tile-split.glb',
+    tile_wide_straight: 'assets/td/tile-wide-straight.glb',
+    // Special tiles
+    tile_tree: 'assets/td/tile-tree.glb',
+    tile_tree_double: 'assets/td/tile-tree-double.glb',
+    tile_tree_quad: 'assets/td/tile-tree-quad.glb',
+    tile_rock: 'assets/td/tile-rock.glb',
+    tile_dirt: 'assets/td/tile-dirt.glb',
+    tile_crystal: 'assets/td/tile-crystal.glb',
+    // River tiles
+    tile_river_straight: 'assets/td/tile-river-straight.glb',
+    tile_river_bridge: 'assets/td/tile-river-bridge.glb',
+    tile_river_corner: 'assets/td/tile-river-corner.glb',
+    tile_river_transition: 'assets/td/tile-river-transition.glb',
+    // Spawn/end tiles
+    tile_spawn_round: 'assets/td/tile-spawn-round.glb',
+    tile_spawn: 'assets/td/tile-spawn.glb',
+    tile_end_round: 'assets/td/tile-end-round.glb',
+    tile_end: 'assets/td/tile-end.glb',
+    // Details & decorations
+    detail_tree: 'assets/td/detail-tree.glb',
+    detail_tree_large: 'assets/td/detail-tree-large.glb',
+    detail_rocks: 'assets/td/detail-rocks.glb',
+    detail_rocks_large: 'assets/td/detail-rocks-large.glb',
+    detail_crystal: 'assets/td/detail-crystal.glb',
+    detail_crystal_large: 'assets/td/detail-crystal-large.glb',
+    detail_dirt: 'assets/td/detail-dirt.glb',
+    wood_structure: 'assets/td/wood-structure.glb',
+    wood_structure_part: 'assets/td/wood-structure-part.glb',
+    wood_structure_high: 'assets/td/wood-structure-high.glb',
+    // Towers
+    tower_round_build_a: 'assets/td/tower-round-build-a.glb',
+    tower_round_build_b: 'assets/td/tower-round-build-b.glb',
+    tower_round_build_c: 'assets/td/tower-round-build-c.glb',
+    tower_round_build_d: 'assets/td/tower-round-build-d.glb',
+    tower_round_build_e: 'assets/td/tower-round-build-e.glb',
+    tower_square_build_a: 'assets/td/tower-square-build-a.glb',
+    tower_square_build_b: 'assets/td/tower-square-build-b.glb',
+    tower_square_build_c: 'assets/td/tower-square-build-c.glb',
+    tower_square_build_d: 'assets/td/tower-square-build-d.glb',
+    tower_round_base: 'assets/td/tower-round-base.glb',
+    // Weapons
+    weapon_cannon: 'assets/td/weapon-cannon.glb',
+    weapon_ballista: 'assets/td/weapon-ballista.glb',
+    weapon_turret: 'assets/td/weapon-turret.glb',
+    weapon_catapult: 'assets/td/weapon-catapult.glb',
+    // Enemies
+    enemy_ufo_a: 'assets/td/enemy-ufo-a.glb',
+    enemy_ufo_b: 'assets/td/enemy-ufo-b.glb',
+    enemy_ufo_c: 'assets/td/enemy-ufo-c.glb',
+    enemy_ufo_d: 'assets/td/enemy-ufo-d.glb',
+    // Animals
+    animal_bee: 'assets/td/animal-bee.glb',
+    animal_elephant: 'assets/td/animal-elephant.glb',
+    animal_fox: 'assets/td/animal-fox.glb',
+    animal_crab: 'assets/td/animal-crab.glb',
+    animal_panda: 'assets/td/animal-panda.glb',
+    animal_penguin: 'assets/td/animal-penguin.glb',
+    animal_lion: 'assets/td/animal-lion.glb',
+    animal_monkey: 'assets/td/animal-monkey.glb',
+  });
+  
+  updateProgress(90, 'Building scene...');
+  
+  // Copy new assets from kenney kit
+  setupEvents();
+  
+  updateProgress(100, 'Ready!');
+  await new Promise(r => setTimeout(r, 500));
+  
+  document.getElementById('loading-screen').classList.add('hidden');
+  document.getElementById('main-menu').classList.remove('hidden');
+  
+  gameState = 'menu';
+  requestAnimationFrame(gameLoop);
+}
+
+main().catch(err => {
+  console.error('Fatal error:', err);
+  document.getElementById('progress-label').textContent = 'Error: ' + err.message;
+});
+</script>
+</body>
+</html>
